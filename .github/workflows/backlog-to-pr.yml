@@ -66,7 +66,6 @@ jobs:
           opencode-model: ${{ inputs.provider == 'opencode' && inputs.model || '' }}
           opencode-go-subscription-key: ${{ secrets.OPENCODE_GO_SUBSCRIPTION_KEY }}
           draft: ${{ inputs.draft }}
-          tag-trigger: ${{ inputs.tag_trigger }}
 
   deploy-preview:
     needs: solve
