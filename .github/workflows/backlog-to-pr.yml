@@ -1,6 +1,9 @@
 name: Backlog task to PR
 
 on:
+  pull_request:
+    types:
+      - closed
   workflow_dispatch:
     inputs:
       backlog_task_id:
@@ -83,9 +86,13 @@ jobs:
       - name: Build web release
         run: flutter build web --release
 
-      - name: Compute short hash
+      - name: Compute domain prefix from branch name
         id: hash
-        run: echo "hash=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          BRANCH: ${{ needs.solve.outputs.branch }}
+        run: |
+          prefix=$(printf '%s' "$BRANCH" | md5sum | cut -c1-12)
+          echo "hash=$prefix" >> "$GITHUB_OUTPUT"
 
       - name: Populate known_hosts
         env:
@@ -136,3 +143,53 @@ jobs:
           PREVIEW_URL: https://${{ steps.hash.outputs.hash }}.cut.wrbl.xyz/
         run: |
           gh pr comment "$PR_URL" --body "Web preview deployed at: $PREVIEW_URL"
+
+  cleanup-preview:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute domain prefix from branch name
+        id: hash
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          prefix=$(printf '%s' "$BRANCH" | md5sum | cut -c1-12)
+          echo "hash=$prefix" >> "$GITHUB_OUTPUT"
+
+      - name: Populate known_hosts
+        env:
+          PSANCHOR_SSH_HOST: ${{ secrets.PSANCHOR_SSH_HOST }}
+          PSANCHOR_SSH_PORT: ${{ secrets.PSANCHOR_SSH_PORT || '22' }}
+          PSANCHOR_KNOWN_HOSTS: ${{ secrets.PSANCHOR_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -n "$PSANCHOR_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$PSANCHOR_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$PSANCHOR_SSH_PORT" "$PSANCHOR_SSH_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Load SSH identity
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.PSANCHOR_SSH_KEY }}
+
+      - name: Remove preview files and subdomain
+        env:
+          PSANCHOR_SSH_USER: ${{ secrets.PSANCHOR_SSH_USER }}
+          PSANCHOR_SSH_HOST: ${{ secrets.PSANCHOR_SSH_HOST }}
+          PSANCHOR_SSH_PORT: ${{ secrets.PSANCHOR_SSH_PORT || '22' }}
+          REMOTE_PATH: /home/${{ secrets.PSANCHOR_SSH_USER }}/domains/${{ steps.hash.outputs.hash }}.cut.wrbl.xyz
+          DOMAIN: ${{ steps.hash.outputs.hash }}.cut.wrbl.xyz
+        run: |
+          ssh -p "$PSANCHOR_SSH_PORT" "$PSANCHOR_SSH_USER@$PSANCHOR_SSH_HOST" \
+            "rm -rf \"$REMOTE_PATH\"; devil www del $DOMAIN" || true
+
+      - name: Comment cleanup on PR
+        env:
+          GH_TOKEN: ${{ secrets.BACKLOG_TO_PR_GITHUB_TOKEN || github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body "Web preview has been cleaned up."
