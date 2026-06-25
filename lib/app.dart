@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'screens/menu_screen.dart';
+import 'services/storage_service.dart';
 
 class CutInHalfApp extends StatelessWidget {
-  const CutInHalfApp({super.key});
+  const CutInHalfApp({super.key, this.storage});
+
+  final StorageService? storage;
 
   @override
   Widget build(BuildContext context) {
@@ -11,7 +14,7 @@ class CutInHalfApp extends StatelessWidget {
       title: 'Cut In Half',
       debugShowCheckedModeBanner: false,
       theme: _theme(),
-      home: const MenuScreen(),
+      home: MenuScreen(storage: storage),
     );
   }
 

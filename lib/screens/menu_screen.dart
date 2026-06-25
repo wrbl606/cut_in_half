@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../widgets/animated_text.dart';
 import 'multi_setup_screen.dart';
+import '../services/storage_service.dart';
 import 'progress_screen.dart';
 import 'settings_screen.dart';
 
 /// Cycles the last word of the game title ("CUT IN ____") between the
 /// common fractional targets: half, quarters, eighths.
 class MenuScreen extends StatefulWidget {
-  const MenuScreen({super.key});
+  const MenuScreen({super.key, this.storage});
+
+  final StorageService? storage;
 
   @override
   State<MenuScreen> createState() => _MenuScreenState();
@@ -102,7 +105,9 @@ class _MenuScreenState extends State<MenuScreen> {
                 label: 'Single Player',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const ProgressScreen(),
+                    builder: (_) => ProgressScreen(
+                      storage: widget.storage,
+                    ),
                   ),
                 ),
               ),

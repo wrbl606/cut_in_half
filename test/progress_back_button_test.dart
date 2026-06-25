@@ -1,7 +1,21 @@
 import 'package:cut_in_half/app.dart';
+import 'package:cut_in_half/models/player_progress.dart';
+import 'package:cut_in_half/services/storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// In-memory storage so widget tests never touch `dart:io` (whose async
+/// completion isn't driven by the test FakeAsync clock).
+class _FakeStorage extends StorageService {
+  PlayerProgress progress = PlayerProgress();
+
+  @override
+  Future<PlayerProgress> load() async => PlayerProgress.fromJson(progress.toJson());
+
+  @override
+  Future<void> save(PlayerProgress p) async => progress = p;
+}
 
 void main() {
   setUp(() {
@@ -19,7 +33,7 @@ void main() {
   });
 
   testWidgets('ProgressScreen back button returns to menu', (tester) async {
-    await tester.pumpWidget(const CutInHalfApp());
+    await tester.pumpWidget(CutInHalfApp(storage: _FakeStorage()));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 

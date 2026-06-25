@@ -7,11 +7,13 @@ import '../models/player_progress.dart';
 
 /// JSON-file-backed persistence for single-player progress.
 class StorageService {
-  static const String _fileName = 'cut_in_half_progress.json';
+  StorageService({this.fileName = 'cut_in_half_progress.json'});
+
+  final String fileName;
 
   Future<File> _file() async {
     final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$_fileName');
+    return File('${dir.path}/$fileName');
   }
 
   Future<PlayerProgress> load() async {

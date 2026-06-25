@@ -1,28 +1,26 @@
-import 'dart:io';
-
+import 'package:cut_in_half/models/player_progress.dart';
 import 'package:cut_in_half/screens/progress_screen.dart';
+import 'package:cut_in_half/services/storage_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// In-memory storage so widget tests never touch `dart:io` (whose async
+/// completion isn't driven by the test FakeAsync clock).
+class _FakeStorage extends StorageService {
+  PlayerProgress progress = PlayerProgress();
+
+  @override
+  Future<PlayerProgress> load() async => PlayerProgress.fromJson(progress.toJson());
+
+  @override
+  Future<void> save(PlayerProgress p) async => progress = p;
+}
 
 void main() {
   testWidgets('ProgressScreen loads and back button pops', (tester) async {
-    final dir = Directory.systemTemp.createTempSync('cut_in_half_test_');
-    debugPrint('temp dir: ${dir.path}');
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (MethodCall call) async {
-        debugPrint('path_provider mock called: ${call.method}');
-        if (call.method == 'getApplicationSupportDirectory') {
-          return dir.path;
-        }
-        return null;
-      },
-    );
-
     await tester.pumpWidget(
       MaterialApp(
-        home: const MenuPage(),
+        home: MenuPage(storage: _FakeStorage()),
       ),
     );
     await tester.pump();
@@ -45,15 +43,20 @@ void main() {
 }
 
 class MenuPage extends StatelessWidget {
-  const MenuPage({super.key});
+  const MenuPage({super.key, required this.storage});
+
+  final StorageService storage;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: ElevatedButton(
-          onPressed: () => Navigator.of(context)
-              .push(MaterialPageRoute(builder: (_) => const ProgressScreen())),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ProgressScreen(storage: storage),
+            ),
+          ),
           child: const Text('Open Levels'),
         ),
       ),

@@ -8,14 +8,17 @@ import 'attempts_screen.dart';
 import 'cut_screen.dart';
 
 class ProgressScreen extends StatefulWidget {
-  const ProgressScreen({super.key});
+  const ProgressScreen({super.key, this.storage});
+
+  final StorageService? storage;
 
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  final StorageService _storage = StorageService();
+  late final StorageService _storage =
+      widget.storage ?? StorageService();
   List<Level>? _levels;
   PlayerProgress? _progress;
 
