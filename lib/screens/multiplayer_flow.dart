@@ -101,7 +101,12 @@ class _MultiplayerFlowState extends State<MultiplayerFlow> {
               result: _results[i],
             ),
         ];
-        return StandingsScreen(results: ranked);
+        return StandingsScreen(
+          results: ranked,
+          assetPath: _level.image,
+          sessionId: _sessionId,
+          sessionTitle: 'Multiplayer · ${_level.title}',
+        );
     }
   }
 }

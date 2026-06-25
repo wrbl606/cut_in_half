@@ -38,6 +38,9 @@ permissions:
 jobs:
   solve:
     runs-on: ubuntu-latest
+    outputs:
+      pull-request-url: ${{ steps.solve.outputs.pull-request-url }}
+      branch: ${{ steps.solve.outputs.branch }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -47,7 +50,8 @@ jobs:
       - name: Install Flutter
         uses: monterail/flutter-action@v2
 
-      - uses: wrbl606/backlog.md-to-pr@v1
+      - id: solve
+        uses: wrbl606/backlog.md-to-pr@v1
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -60,3 +64,75 @@ jobs:
           opencode-go-subscription-key: ${{ secrets.OPENCODE_GO_SUBSCRIPTION_KEY }}
           draft: ${{ inputs.draft }}
           tag-trigger: ${{ inputs.tag_trigger }}
+
+  deploy-preview:
+    needs: solve
+    runs-on: ubuntu-latest
+    if: ${{ needs.solve.outputs.branch != '' }}
+    steps:
+      - name: Checkout solution branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.solve.outputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.BACKLOG_TO_PR_GITHUB_TOKEN || github.token }}
+
+      - name: Install Flutter
+        uses: monterail/flutter-action@v2
+
+      - name: Build web release
+        run: flutter build web --release
+
+      - name: Compute short hash
+        id: hash
+        run: echo "hash=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Populate known_hosts
+        env:
+          PSANCHOR_SSH_HOST: ${{ secrets.PSANCHOR_SSH_HOST }}
+          PSANCHOR_SSH_PORT: ${{ secrets.PSANCHOR_SSH_PORT || '22' }}
+          PSANCHOR_KNOWN_HOSTS: ${{ secrets.PSANCHOR_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -n "$PSANCHOR_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$PSANCHOR_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$PSANCHOR_SSH_PORT" "$PSANCHOR_SSH_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Load SSH identity
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.PSANCHOR_SSH_KEY }}
+
+      - name: Register subdomain on psAnchor
+        env:
+          PSANCHOR_SSH_USER: ${{ secrets.PSANCHOR_SSH_USER }}
+          PSANCHOR_SSH_HOST: ${{ secrets.PSANCHOR_SSH_HOST }}
+          PSANCHOR_SSH_PORT: ${{ secrets.PSANCHOR_SSH_PORT || '22' }}
+          DOMAIN: ${{ steps.hash.outputs.hash }}.cut.wrbl.xyz
+        run: |
+          ssh -p "$PSANCHOR_SSH_PORT" "$PSANCHOR_SSH_USER@$PSANCHOR_SSH_HOST" \
+            "devil www add $DOMAIN" || true
+
+      - name: Rsync build to server
+        env:
+          PSANCHOR_SSH_USER: ${{ secrets.PSANCHOR_SSH_USER }}
+          PSANCHOR_SSH_HOST: ${{ secrets.PSANCHOR_SSH_HOST }}
+          PSANCHOR_SSH_PORT: ${{ secrets.PSANCHOR_SSH_PORT || '22' }}
+          REMOTE_PATH: /home/${{ secrets.PSANCHOR_SSH_USER }}/domains/${{ steps.hash.outputs.hash }}.cut.wrbl.xyz/public_html
+        run: |
+          rsync -az --delete \
+            -e "ssh -p $PSANCHOR_SSH_PORT" \
+            build/web/ \
+            "$PSANCHOR_SSH_USER@$PSANCHOR_SSH_HOST:$REMOTE_PATH/"
+
+      - name: Comment preview link on PR
+        env:
+          GH_TOKEN: ${{ secrets.BACKLOG_TO_PR_GITHUB_TOKEN || github.token }}
+          PR_URL: ${{ needs.solve.outputs.pull-request-url }}
+          PREVIEW_URL: https://${{ steps.hash.outputs.hash }}.cut.wrbl.xyz/
+        run: |
+          gh pr comment "$PR_URL" --body "Web preview deployed at: $PREVIEW_URL"

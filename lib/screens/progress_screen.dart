@@ -4,6 +4,7 @@ import '../models/level.dart';
 import '../models/player_progress.dart';
 import '../services/level_loader.dart';
 import '../services/storage_service.dart';
+import 'attempts_screen.dart';
 import 'cut_screen.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -93,6 +94,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     _refreshProgress();
                   }
                 : null,
+            onAttempts: (lp?.played ?? false)
+                ? () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AttemptsScreen(
+                          levelId: lvl.id,
+                          title: lvl.title,
+                        ),
+                      ),
+                    )
+                : null,
           );
         },
       ),
@@ -108,6 +119,7 @@ class _LevelRow extends StatelessWidget {
     required this.bestPoints,
     required this.cumulativePoints,
     required this.onTap,
+    this.onAttempts,
   });
 
   final Level level;
@@ -116,6 +128,7 @@ class _LevelRow extends StatelessWidget {
   final int bestPoints;
   final int cumulativePoints;
   final VoidCallback? onTap;
+  final VoidCallback? onAttempts;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +154,9 @@ class _LevelRow extends StatelessWidget {
               ),
             ),
           ),
+          if (onAttempts != null)
+            _AttemptsButton(onTap: onAttempts!),
+          const SizedBox(width: 8),
           Text(
             unlocked
                 ? (bestAccuracy > 0
@@ -168,6 +184,41 @@ class _LevelRow extends StatelessWidget {
               ),
             )
           : null,
+    );
+  }
+}
+
+class _AttemptsButton extends StatelessWidget {
+  const _AttemptsButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF0F0F0),
+      borderRadius: const BorderRadius.all(Radius.circular(6)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.all(Radius.circular(6)),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history, size: 14, color: Color(0xFF666666)),
+              SizedBox(width: 4),
+              Text(
+                'Attempts',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF666666),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

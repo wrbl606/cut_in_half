@@ -26,9 +26,9 @@ class AttemptStore {
   Future<List<Attempt>> loadAll() async {
     try {
       final file = await _file();
-      if (!await file.exists()) return const <Attempt>[];
+      if (!await file.exists()) return <Attempt>[];
       final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return const <Attempt>[];
+      if (raw.trim().isEmpty) return <Attempt>[];
       final json = jsonDecode(raw) as Map<String, dynamic>;
       final list = (json['attempts'] as List<dynamic>?) ?? const <dynamic>[];
       final attempts = list
@@ -37,7 +37,7 @@ class AttemptStore {
       attempts.sort((a, b) => b.timestampMs.compareTo(a.timestampMs));
       return attempts;
     } catch (_) {
-      return const <Attempt>[];
+      return <Attempt>[];
     }
   }
 

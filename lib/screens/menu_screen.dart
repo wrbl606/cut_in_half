@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../widgets/animated_text.dart';
-import 'attempts_screen.dart';
 import 'multi_setup_screen.dart';
 import 'progress_screen.dart';
 import 'settings_screen.dart';
@@ -18,7 +17,7 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  static const List<String> _fractions = ['HALF', 'QUARTERS', 'EIGHTHS'];
+  static const List<String> _fractions = ['HALF', 'THIRDS', 'QUARTERS'];
   int _fractionIndex = 0;
   Timer? _cycle;
 
@@ -49,22 +48,20 @@ class _MenuScreenState extends State<MenuScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(flex: 2),
-              const Text(
-                'CUT',
-                textAlign: TextAlign.left,
-                style: TextStyle(
-                  fontSize: 72,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                  letterSpacing: -2,
-                  height: 0.9,
-                ),
-              ),
               Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
                 children: [
+                  const Text(
+                    'CUT ',
+                    textAlign: TextAlign.left,
+                    style: TextStyle(
+                      fontSize: 72,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                      letterSpacing: -2,
+                      height: 0.9,
+                    ),
+                  ),
+                  
                   const Text(
                     'IN ',
                     style: TextStyle(
@@ -75,6 +72,13 @@ class _MenuScreenState extends State<MenuScreen> {
                       height: 0.9,
                     ),
                   ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
                   AnimatedText(
                     value: fraction,
                     duration: const Duration(milliseconds: 450),
@@ -108,15 +112,6 @@ class _MenuScreenState extends State<MenuScreen> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const MultiSetupScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _MenuButton(
-                label: 'Attempts',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AttemptsScreen(),
                   ),
                 ),
               ),

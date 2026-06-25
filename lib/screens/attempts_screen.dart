@@ -4,11 +4,18 @@ import '../models/attempt.dart';
 import '../services/attempt_store.dart';
 import '../widgets/miniature_cut.dart';
 
-/// Browse and compare every stored attempt — single-player and
-/// multiplayer — as miniature cut previews. Multiplayer attempts are
-/// grouped by session so each match's players can be compared head-to-head.
+/// Browse and compare stored attempts as miniature cut previews.
+///
+/// When [levelId] is set, only single-player attempts for that level are
+/// shown. When [sessionId] is set, only the multiplayer attempts of that
+/// session are shown. When neither is set, all attempts are listed with
+/// All / Single / Multiplayer filters.
 class AttemptsScreen extends StatefulWidget {
-  const AttemptsScreen({super.key});
+  const AttemptsScreen({super.key, this.levelId, this.sessionId, this.title});
+
+  final String? levelId;
+  final String? sessionId;
+  final String? title;
 
   @override
   State<AttemptsScreen> createState() => _AttemptsScreenState();
@@ -28,6 +35,22 @@ class _AttemptsScreenState extends State<AttemptsScreen> {
     final a = await _store.loadAll();
     if (!mounted) return;
     setState(() => _attempts = a);
+  }
+
+  List<Attempt> _filtered(List<Attempt> all) {
+    if (widget.levelId != null) {
+      return all
+          .where((a) =>
+              a.mode == AttemptMode.single && a.levelId == widget.levelId)
+          .toList();
+    }
+    if (widget.sessionId != null) {
+      return all
+          .where((a) =>
+              a.mode == AttemptMode.multi && a.sessionId == widget.sessionId)
+          .toList();
+    }
+    return all;
   }
 
   Future<void> _clear() async {
@@ -59,8 +82,8 @@ class _AttemptsScreenState extends State<AttemptsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final attempts = _attempts;
-    if (attempts == null) {
+    final raw = _attempts;
+    if (raw == null) {
       return const Scaffold(
         backgroundColor: Colors.white,
         body: Center(
@@ -72,16 +95,19 @@ class _AttemptsScreenState extends State<AttemptsScreen> {
         ),
       );
     }
+    final attempts = _filtered(raw);
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Attempts'),
+        title: Text(widget.title ?? 'Attempts'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
         centerTitle: false,
         actions: [
-          if (attempts.isNotEmpty)
+          if (widget.levelId == null &&
+              widget.sessionId == null &&
+              attempts.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),
               onPressed: _clear,
@@ -92,7 +118,11 @@ class _AttemptsScreenState extends State<AttemptsScreen> {
       body: SafeArea(
         child: attempts.isEmpty
             ? const _EmptyState()
-            : _GroupedAttempts(attempts: attempts),
+            : _GroupedAttempts(
+                attempts: attempts,
+                forceSingleLevel: widget.levelId != null,
+                forceSession: widget.sessionId != null,
+              ),
       ),
     );
   }
@@ -101,8 +131,14 @@ class _AttemptsScreenState extends State<AttemptsScreen> {
 enum _Grouping { all, multi, single }
 
 class _GroupedAttempts extends StatefulWidget {
-  const _GroupedAttempts({required this.attempts});
+  const _GroupedAttempts({
+    required this.attempts,
+    this.forceSingleLevel = false,
+    this.forceSession = false,
+  });
   final List<Attempt> attempts;
+  final bool forceSingleLevel;
+  final bool forceSession;
 
   @override
   State<_GroupedAttempts> createState() => _GroupedAttemptsState();
@@ -111,26 +147,35 @@ class _GroupedAttempts extends StatefulWidget {
 class _GroupedAttemptsState extends State<_GroupedAttempts> {
   _Grouping _grouping = _Grouping.all;
 
+  bool get _filtered =>
+      widget.forceSingleLevel || widget.forceSession;
+
   List<_AttemptGroup> _buildAll(List<Attempt> all) {
-    // Group multiplayer by session; each single attempt is its own group.
-    final bySession = <String, _AttemptGroup>{};
+    // Multiplayer attempts are grouped by session. Single-player attempts
+    // are grouped per level so all replays of a level sit together.
+    final groups = <String, _AttemptGroup>{};
     for (final a in all) {
-      final key = a.sessionId ?? 'solo_${a.id}';
-      (bySession[key] ??= _AttemptGroup(
-              key: key,
-              mode: a.mode,
-              title: a.mode == AttemptMode.multi
-                  ? 'Multiplayer · ${a.title}'
-                  : a.title,
-              assetPath: a.assetPath,
-              sessionId: a.sessionId))
-          .attempts
-          .add(a);
+      final key = a.mode == AttemptMode.multi
+          ? 'multi_${a.sessionId ?? a.id}'
+          : 'level_${a.levelId}';
+      groups[key] ??= _AttemptGroup(
+        key: key,
+        mode: a.mode,
+        title: a.mode == AttemptMode.multi
+            ? 'Multiplayer · ${a.title}'
+            : a.title,
+        assetPath: a.assetPath,
+        sessionId: a.sessionId,
+      );
+      groups[key]!.attempts.add(a);
     }
-    return bySession.values.toList()
+    return groups.values.toList()
       ..sort((g1, g2) {
-        final a = g1.attempts.first.timestampMs;
-        final b = g2.attempts.first.timestampMs;
+        // Newest attempt in the group determines the group order.
+        final a = g1.attempts.fold<int>(0,
+            (m, x) => x.timestampMs > m ? x.timestampMs : m);
+        final b = g2.attempts.fold<int>(0,
+            (m, x) => x.timestampMs > m ? x.timestampMs : m);
         return b.compareTo(a);
       });
   }
@@ -153,31 +198,32 @@ class _GroupedAttemptsState extends State<_GroupedAttempts> {
     final groups = _groups(all);
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-          child: Row(
-            children: [
-              _FilterChip(
-                label: 'All',
-                selected: _grouping == _Grouping.all,
-                onTap: () => setState(() => _grouping = _Grouping.all),
-              ),
-              const SizedBox(width: 8),
-              _FilterChip(
-                label: 'Single',
-                selected: _grouping == _Grouping.single,
-                onTap: () => setState(() => _grouping = _Grouping.single),
-              ),
-              const SizedBox(width: 8),
-              _FilterChip(
-                label: 'Multiplayer',
-                selected: _grouping == _Grouping.multi,
-                onTap: () => setState(() => _grouping = _Grouping.multi),
-              ),
-            ],
+        if (!_filtered)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'All',
+                  selected: _grouping == _Grouping.all,
+                  onTap: () => setState(() => _grouping = _Grouping.all),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Single',
+                  selected: _grouping == _Grouping.single,
+                  onTap: () => setState(() => _grouping = _Grouping.single),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Multiplayer',
+                  selected: _grouping == _Grouping.multi,
+                  onTap: () => setState(() => _grouping = _Grouping.multi),
+                ),
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1, color: Color(0xFFEEEEEE)),
+        if (!_filtered) const Divider(height: 1, color: Color(0xFFEEEEEE)),
         Expanded(
           child: groups.isEmpty
               ? const _EmptyState()
@@ -229,11 +275,20 @@ class _GroupCard extends StatelessWidget {
         }
         return b.accuracy.compareTo(a.accuracy);
       });
-    final reference = list.first;
-    final time = reference.timestamp;
+    final newest = group.attempts.reduce((x, y) =>
+        x.timestampMs > y.timestampMs ? x : y);
+    final best = group.attempts.reduce((x, y) =>
+        x.accuracy > y.accuracy ? x : y);
+    final time = newest.timestamp;
     final timeLabel =
         '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} '
         '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    final meta = group.mode == AttemptMode.multi
+        ? '$timeLabel  ·  ${newest.targetPieces} pieces  ·  '
+            '${list.length} player${list.length == 1 ? '' : 's'}'
+        : '${newest.targetPieces} pieces  ·  ${list.length} attempt'
+            '${list.length == 1 ? '' : 's'}  ·  best ${best.accuracy.toStringAsFixed(1)}%'
+            '  ·  last $timeLabel';
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       child: Column(
@@ -256,8 +311,7 @@ class _GroupCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$timeLabel  ·  ${reference.targetPieces} pieces  ·  '
-                      '${list.length} attempt${list.length == 1 ? '' : 's'}',
+                      meta,
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF999999),
@@ -269,7 +323,7 @@ class _GroupCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _ComparisonGrid(group: group, ordered: list),
+          _ComparisonGrid(ordered: list),
         ],
       ),
     );
@@ -277,109 +331,135 @@ class _GroupCard extends StatelessWidget {
 }
 
 class _ComparisonGrid extends StatelessWidget {
-  const _ComparisonGrid({required this.group, required this.ordered});
-  final _AttemptGroup group;
+  const _ComparisonGrid({required this.ordered});
   final List<Attempt> ordered;
 
   @override
   Widget build(BuildContext context) {
-    const tileH = 132.0;
-    return SizedBox(
-      height: tileH,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: ordered.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 1),
-        itemBuilder: (context, i) {
-          final a = ordered[i];
-          const width = 128.0;
-          final isLast = i == ordered.length - 1;
-          return Container(
-            width: width,
-            decoration: isLast
-                ? null
-                : const BoxDecoration(
-                    border: Border(
-                      right: BorderSide(color: Color(0xFFEEEEEE), width: 1),
-                    ),
-                  ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: 96,
-                  child: MiniatureCut(
-                    assetPath: a.assetPath,
-                    cuts: a.cuts,
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 1000 ? 3 : 2;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 0,
+            crossAxisSpacing: 0,
+            childAspectRatio: 0.78,
+          ),
+          itemCount: ordered.length,
+          itemBuilder: (context, i) {
+            final a = ordered[i];
+            final colIndex = i % crossAxisCount;
+            final rowIndex = i ~/ crossAxisCount;
+            final isLastCol = colIndex == crossAxisCount - 1;
+            final rowCount = (ordered.length + crossAxisCount - 1) ~/ crossAxisCount;
+            final isLastRow = rowIndex == rowCount - 1;
+            return Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  right: isLastCol
+                      ? BorderSide.none
+                      : const BorderSide(color: Color(0xFFEEEEEE), width: 1),
+                  bottom: isLastRow
+                      ? BorderSide.none
+                      : const BorderSide(color: Color(0xFFEEEEEE), width: 1),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (a.mode == AttemptMode.multi &&
-                          a.playerName != null)
-                        Text(
-                          a.playerName!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF000000),
-                          ),
-                        ),
-                      Row(
-                        children: [
-                          Text(
-                            '${a.accuracy.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight:
-                                  a.objectiveMet ? FontWeight.w700 : FontWeight.w500,
-                              color: a.objectiveMet
-                                  ? const Color(0xFF000000)
-                                  : const Color(0xFFCC0000),
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${a.points}p',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF999999),
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 2,
-                        children: [
-                          for (final p in a.percents)
-                            Text(
-                              p.toStringAsFixed(1),
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFFBBBBBB),
-                                fontFeatures: [FontFeature.tabularFigures()],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
+              child: _AttemptTile(attempt: a),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AttemptTile extends StatelessWidget {
+  const _AttemptTile({required this.attempt});
+  final Attempt attempt;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = attempt;
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: MiniatureCut(
+              assetPath: a.assetPath,
+              cuts: a.cuts,
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 6),
+          if (a.mode == AttemptMode.multi && a.playerName != null)
+            Text(
+              a.playerName!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF000000),
+              ),
+            )
+          else if (a.mode == AttemptMode.single)
+            Text(
+              _shortDate(a.timestamp),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF999999),
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          Row(
+            children: [
+              Text(
+                '${a.accuracy.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight:
+                      a.objectiveMet ? FontWeight.w700 : FontWeight.w500,
+                  color: a.objectiveMet
+                      ? const Color(0xFF000000)
+                      : const Color(0xFFCC0000),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${a.points}p',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF999999),
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Wrap(
+            spacing: 4,
+            runSpacing: 2,
+            children: [
+              for (final p in a.percents)
+                Text(
+                  p.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFFBBBBBB),
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -435,4 +515,12 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+String _shortDate(DateTime t) {
+  final day = t.day.toString().padLeft(2, '0');
+  final month = t.month.toString().padLeft(2, '0');
+  final hour = t.hour.toString().padLeft(2, '0');
+  final minute = t.minute.toString().padLeft(2, '0');
+  return '$month-$day $hour:$minute';
 }
