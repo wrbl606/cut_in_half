@@ -1,0 +1,62 @@
+name: Backlog task to PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      backlog_task_id:
+        description: Backlog.md task ID, for example task-7
+        required: true
+        type: string
+      provider:
+        description: Coding CLI provider
+        required: true
+        default: opencode
+        type: choice
+        options:
+          - opencode
+          - codex
+      model:
+        description: Optional provider model
+        required: false
+        type: string
+        default: opencode-go/glm-5.2
+      draft:
+        description: Create the pull request as a draft
+        required: false
+        default: true
+        type: boolean
+      tag_trigger:
+        description: Tag the triggering actor in the PR body
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  solve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BACKLOG_TO_PR_GITHUB_TOKEN || github.token }}
+          
+      - name: Install Flutter
+        uses: monterail/flutter-action@v2
+
+      - uses: wrbl606/backlog.md-to-pr@v1
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          backlog-task-id: ${{ inputs.backlog_task_id }}
+          provider: ${{ inputs.provider }}
+          github-token: ${{ secrets.BACKLOG_TO_PR_GITHUB_TOKEN || github.token }}
+          codex-model: ${{ inputs.provider == 'codex' && inputs.model || '' }}
+          opencode-model: ${{ inputs.provider == 'opencode' && inputs.model || '' }}
+          opencode-go-subscription-key: ${{ secrets.OPENCODE_GO_SUBSCRIPTION_KEY }}
+          draft: ${{ inputs.draft }}
+          tag-trigger: ${{ inputs.tag_trigger }}
