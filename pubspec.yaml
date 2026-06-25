@@ -1,0 +1,24 @@
+name: cut_in_half
+description: "A precision party game — cut the object into equal pieces."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path_provider: ^2.1.5
+  image: ^4.5.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/levels/
+    - assets/images/
