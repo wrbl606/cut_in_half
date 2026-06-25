@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:cut_in_half/app.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -51,7 +49,9 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       if (find.text('Single Player').evaluate().isNotEmpty &&
-          find.text('Levels').evaluate().isEmpty) break;
+          find.text('Levels').evaluate().isEmpty) {
+        break;
+      }
     }
 
     // We should be back at the menu.

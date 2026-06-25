@@ -119,10 +119,11 @@ class _MultiSetupScreenState extends State<MultiSetupScreen> {
   }
 
   Future<void> _start() async {
-    final names = _nameControllers
-        .sublist(0, _playerCount)
-        .map((c) => c.text.trim().isEmpty ? 'P$_playerCount' : c.text.trim())
-        .toList();
+    final names = <String>[];
+    for (var i = 0; i < _playerCount; i++) {
+      final t = _nameControllers[i].text.trim();
+      names.add(t.isEmpty ? 'P${i + 1}' : t);
+    }
     final levels = await LevelLoader.loadAll();
     if (!mounted) return;
     final images = levels.map((l) => l.image).toList();

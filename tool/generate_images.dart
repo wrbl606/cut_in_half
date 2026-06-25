@@ -33,7 +33,7 @@ class _Color {
 
 // Per-shape gradient stops. Each entry is a list of colors; pixels are
 // filled along a diagonal (top-left → bottom-right) multi-stop gradient.
-const Map<String, List<_Color>> palettes = <String, List<_Color>>{
+const Map<String, List<_Color>> _palettes = <String, List<_Color>>{
   'circle':   [_Color(255, 99, 132),  _Color(255, 180, 92),  _Color(255, 233, 138)],
   'square':   [_Color(64, 123, 255),  _Color(129, 96, 240), _Color(206, 116, 224)],
   'triangle': [_Color(255, 154, 60),  _Color(255, 206, 86), _Color(255, 124, 86)],
@@ -79,7 +79,7 @@ void main() {
 
   for (final entry in shapes.entries) {
     final shape = entry.value;
-    final palette = palettes[entry.key] ?? const [_Color(120, 120, 120)];
+    final palette = _palettes[entry.key] ?? const [_Color(120, 120, 120)];
     final image = img.Image(width: size, height: size, numChannels: 4);
     for (var y = 0; y < size; y++) {
       for (var x = 0; x < size; x++) {
