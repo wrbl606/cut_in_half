@@ -139,7 +139,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.BACKLOG_TO_PR_GITHUB_TOKEN || github.token }}
           PR_URL: ${{ needs.solve.outputs.pull-request-url }}
-          PREVIEW_URL: https://${{ steps.hash.outputs.hash }}.cut.wrbl.xyz/
+          PREVIEW_URL: http://${{ steps.hash.outputs.hash }}.cut.wrbl.xyz/
         run: |
           gh pr comment "$PR_URL" --body "Web preview deployed at: $PREVIEW_URL"
 
