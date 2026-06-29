@@ -1,27 +1,26 @@
 import 'dart:convert';
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
 
 import '../models/player_progress.dart';
+import 'local_store.dart';
 
-/// JSON-file-backed persistence for single-player progress.
+/// JSON-backed persistence for single-player progress.
+///
+/// Reads and writes go through [LocalStore], which is file-based on
+/// mobile/desktop and `localStorage`-backed on the web, so persistence
+/// works on every Flutter platform.
 class StorageService {
-  StorageService({this.fileName = 'cut_in_half_progress.json'});
+  StorageService({
+    this.fileName = 'cut_in_half_progress.json',
+    LocalStore? store,
+  }) : _store = store ?? LocalStore();
 
   final String fileName;
-
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$fileName');
-  }
+  final LocalStore _store;
 
   Future<PlayerProgress> load() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return PlayerProgress();
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return PlayerProgress();
+      final raw = await _store.read(fileName);
+      if (raw == null || raw.trim().isEmpty) return PlayerProgress();
       final json = jsonDecode(raw) as Map<String, dynamic>;
       return PlayerProgress.fromJson(json);
     } catch (_) {
@@ -31,7 +30,6 @@ class StorageService {
   }
 
   Future<void> save(PlayerProgress progress) async {
-    final file = await _file();
-    await file.writeAsString(jsonEncode(progress.toJson()), flush: true);
+    await _store.write(fileName, jsonEncode(progress.toJson()));
   }
 }

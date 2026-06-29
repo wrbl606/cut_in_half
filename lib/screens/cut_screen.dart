@@ -140,28 +140,35 @@ class _CutScreenState extends State<CutScreen>
       widget.onComplete!(result);
     } else {
       // Single-player: persist best-score progress and record the attempt,
-      // then show ResultScreen.
-      final storage = StorageService();
-      final progress = await storage.load();
-      progress.recordResult(widget.level.id, result.points, result.accuracy);
-      await storage.save(progress);
-      final attempts = AttemptStore();
-      await attempts.record(Attempt.fromResult(
-        id: attempts.newAttemptId('sp'),
-        levelId: widget.level.id,
-        assetPath: widget.level.image,
-        title: widget.level.title,
-        targetPieces: widget.level.targetPieces,
-        timeLimit: widget.level.timeLimit,
-        cuts: result.cuts,
-        percents: result.pieces.map((p) => p.percent).toList(),
-        accuracy: result.accuracy,
-        points: result.points,
-        remainingSeconds: result.remainingSeconds,
-        mode: AttemptMode.single,
-        objectiveMet: result.objectiveMet,
-        objectiveMessage: result.objectiveMessage,
-      ));
+      // then show ResultScreen. Persistence is best-effort — a storage
+      // failure (e.g. an unavailable backend on some platform) must never
+      // block the result screen from appearing.
+      try {
+        final storage = StorageService();
+        final progress = await storage.load();
+        progress.recordResult(widget.level.id, result.points, result.accuracy);
+        await storage.save(progress);
+        final attempts = AttemptStore();
+        await attempts.record(Attempt.fromResult(
+          id: attempts.newAttemptId('sp'),
+          levelId: widget.level.id,
+          assetPath: widget.level.image,
+          title: widget.level.title,
+          targetPieces: widget.level.targetPieces,
+          timeLimit: widget.level.timeLimit,
+          cuts: result.cuts,
+          percents: result.pieces.map((p) => p.percent).toList(),
+          accuracy: result.accuracy,
+          points: result.points,
+          remainingSeconds: result.remainingSeconds,
+          mode: AttemptMode.single,
+          objectiveMet: result.objectiveMet,
+          objectiveMessage: result.objectiveMessage,
+        ));
+      } catch (_) {
+        // Swallow: navigation below still runs so the player sees their
+        // result even if progress couldn't be saved.
+      }
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(

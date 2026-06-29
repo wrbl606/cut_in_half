@@ -1,34 +1,33 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
-import 'package:path_provider/path_provider.dart';
-
 import '../models/attempt.dart';
+import 'local_store.dart';
 
-/// JSON-file-backed persistence for the full attempt history (both
-/// single and multiplayer). Stored separately from the best-score
-/// progress file so the two evolve independently.
+/// JSON-backed persistence for the full attempt history (both single and
+/// multiplayer). Stored separately from the best-score progress file so
+/// the two evolve independently.
+///
+/// Reads and writes go through [LocalStore], which is file-based on
+/// mobile/desktop and `localStorage`-backed on the web, so the history
+/// persists on every Flutter platform.
 class AttemptStore {
-  static const String _fileName = 'cut_in_half_attempts.json';
+  AttemptStore({LocalStore? store}) : _store = store ?? LocalStore();
 
   /// Maximum number of attempts kept. Oldest are pruned first; an entire
   /// multiplayer session is kept or discarded atomically so its player
   /// attempts stay grouped.
   static const int _cap = 200;
 
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$_fileName');
-  }
+  static const String _fileName = 'cut_in_half_attempts.json';
+
+  final LocalStore _store;
 
   /// Attempts newest-first.
   Future<List<Attempt>> loadAll() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return <Attempt>[];
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return <Attempt>[];
+      final raw = await _store.read(_fileName);
+      if (raw == null || raw.trim().isEmpty) return <Attempt>[];
       final json = jsonDecode(raw) as Map<String, dynamic>;
       final list = (json['attempts'] as List<dynamic>?) ?? const <dynamic>[];
       final attempts = list
@@ -42,12 +41,11 @@ class AttemptStore {
   }
 
   Future<void> saveAll(List<Attempt> attempts) async {
-    final file = await _file();
     final trimmed = _prune(attempts);
     final json = {
       'attempts': trimmed.map((a) => a.toJson()).toList(),
     };
-    await file.writeAsString(jsonEncode(json), flush: true);
+    await _store.write(_fileName, jsonEncode(json));
   }
 
   /// Appends [attempt] and persists. Returns the updated list.
