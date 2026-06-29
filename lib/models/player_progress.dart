@@ -25,7 +25,8 @@ class LevelProgress {
 }
 
 class PlayerProgress {
-  PlayerProgress({Map<String, LevelProgress>? levels}) : _levels = levels ?? {};
+  PlayerProgress({Map<String, LevelProgress>? levels, this.soundEnabled = true})
+      : _levels = levels ?? {};
 
   factory PlayerProgress.fromJson(Map<String, dynamic> json) {
     final levels = <String, LevelProgress>{};
@@ -33,10 +34,16 @@ class PlayerProgress {
     raw.forEach((key, value) {
       levels[key] = LevelProgress.fromJson(value as Map<String, dynamic>);
     });
-    return PlayerProgress(levels: levels);
+    return PlayerProgress(
+      levels: levels,
+      soundEnabled: json['sound_enabled'] as bool? ?? true,
+    );
   }
 
   final Map<String, LevelProgress> _levels;
+
+  /// Whether game sound is enabled. Persisted across restarts.
+  bool soundEnabled;
 
   Map<String, LevelProgress> get levels => _levels;
 
@@ -67,5 +74,6 @@ class PlayerProgress {
   Map<String, dynamic> toJson() => {
         'levels':
             _levels.map((key, value) => MapEntry(key, value.toJson())),
+        'sound_enabled': soundEnabled,
       };
 }
