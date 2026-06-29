@@ -1,9 +1,11 @@
 ---
 id: TASK-1
 title: Show sound toggle on main menu screen
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@opencode'
 created_date: '2026-06-25 18:07'
+updated_date: '2026-06-29 08:16'
 labels: []
 dependencies: []
 references:
@@ -22,8 +24,26 @@ Make the sound on/off control directly visible on the main menu screen so player
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A sound on/off control is visible on the main menu screen without opening any other screen
-- [ ] #2 Toggling the control on the menu updates the enabled/disabled state immediately
-- [ ] #3 The sound preference persists across app restarts
-- [ ] #4 The Settings screen still opens without errors (or is removed intentionally with rationale)
+- [x] #1 A sound on/off control is visible on the main menu screen without opening any other screen
+- [x] #2 Toggling the control on the menu updates the enabled/disabled state immediately
+- [x] #3 The sound preference persists across app restarts
+- [x] #4 The Settings screen still opens without errors (or is removed intentionally with rationale)
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add soundEnabled field to PlayerProgress (JSON key sound_enabled, default true). 2. Add a sound icon toggle in the top-right of MenuScreen SafeArea; load preference from StorageService on init, save on toggle. 3. Pass storage into SettingsScreen so it reads/writes the same persisted soundEnabled (single source of truth); refresh menu state when returning from Settings. 4. Update existing PlayerProgress JSON round-trip test and add menu sound toggle widget tests.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented: added soundEnabled (JSON sound_enabled, default true) to PlayerProgress for persistence via existing StorageService. Added an IconButton (volume_up/volume_off) in the top-right of the MenuScreen SafeArea that loads the preference on init and saves on toggle. SettingsScreen now takes storage and reads/writes the same persisted preference (single source of truth); menu refreshes its state when returning from Settings. Updated existing PlayerProgress round-trip test for the new field and added widget tests for the menu toggle, persistence, and Settings sync. flutter analyze clean; 45 tests pass.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Added a persisted sound on/off toggle to the main menu. Expanded PlayerProgress with a soundEnabled field (JSON key sound_enabled, default true) saved via the existing StorageService JSON store. MenuScreen now shows an IconButton (volume_up/volume_off) in the top-right of the SafeArea that loads the preference on init and saves on toggle. SettingsScreen was kept and rewired to read/write the same persisted preference (single source of truth), with the menu refreshing its state on return. Updated the existing PlayerProgress round-trip test and added widget tests covering menu toggle visibility, immediate state updates, persistence, persisted-state load, and Settings sync. Verified: flutter analyze clean, 45 tests pass.
+<!-- SECTION:FINAL_SUMMARY:END -->

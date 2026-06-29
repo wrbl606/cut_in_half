@@ -121,14 +121,33 @@ void main() {
             'best_points': 89,
             'played': true,
           }
-        }
+        },
+        'sound_enabled': true,
       };
       final p = PlayerProgress.fromJson(json);
       expect(p.forLevel('level_01')?.bestAccuracy, 88.5);
       expect(p.forLevel('level_01')?.bestPoints, 89);
       expect(p.forLevel('level_01')?.played, isTrue);
       expect(p.totalCumulativePoints, 89);
+      expect(p.soundEnabled, isTrue);
       expect(p.toJson(), json);
+    });
+
+    test('soundEnabled defaults to true and persists false', () {
+      expect(PlayerProgress().soundEnabled, isTrue);
+      final p = PlayerProgress.fromJson(<String, dynamic>{
+        'levels': <String, dynamic>{},
+        'sound_enabled': false,
+      });
+      expect(p.soundEnabled, isFalse);
+      expect(p.toJson()['sound_enabled'], isFalse);
+    });
+
+    test('soundEnabled defaults to true when omitted in JSON', () {
+      final p = PlayerProgress.fromJson(<String, dynamic>{
+        'levels': <String, dynamic>{},
+      });
+      expect(p.soundEnabled, isTrue);
     });
 
     test('recordResult only increases best (no regression)', () {
