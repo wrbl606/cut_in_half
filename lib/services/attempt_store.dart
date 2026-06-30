@@ -1,36 +1,33 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:sembast/sembast.dart';
 
 import '../models/attempt.dart';
+import 'storage_backend.dart';
 
-/// JSON-file-backed persistence for the full attempt history (both
-/// single and multiplayer). Stored separately from the best-score
-/// progress file so the two evolve independently.
+/// Sembast-backed persistence for the full attempt history (both single
+/// and multiplayer). Stored separately from the best-score progress
+/// database so the two evolve independently.
 class AttemptStore {
-  static const String _fileName = 'cut_in_half_attempts.json';
+  static const String _dbName = 'cut_in_half_attempts.db';
 
   /// Maximum number of attempts kept. Oldest are pruned first; an entire
   /// multiplayer session is kept or discarded atomically so its player
   /// attempts stay grouped.
   static const int _cap = 200;
 
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$_fileName');
-  }
+  static final StoreRef<String, List<dynamic>> _store =
+      StoreRef<String, List<dynamic>>('attempts');
+  static const String _kRecordKey = 'attempts';
+
+  Future<Database> _db() => openAppDatabase(_dbName);
 
   /// Attempts newest-first.
   Future<List<Attempt>> loadAll() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return <Attempt>[];
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return <Attempt>[];
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      final list = (json['attempts'] as List<dynamic>?) ?? const <dynamic>[];
+      final db = await _db();
+      final list = await _store.record(_kRecordKey).get(db);
+      if (list == null) return <Attempt>[];
       final attempts = list
           .map((e) => Attempt.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -42,12 +39,11 @@ class AttemptStore {
   }
 
   Future<void> saveAll(List<Attempt> attempts) async {
-    final file = await _file();
+    final db = await _db();
     final trimmed = _prune(attempts);
-    final json = {
-      'attempts': trimmed.map((a) => a.toJson()).toList(),
-    };
-    await file.writeAsString(jsonEncode(json), flush: true);
+    await _store
+        .record(_kRecordKey)
+        .put(db, trimmed.map((a) => a.toJson()).toList());
   }
 
   /// Appends [attempt] and persists. Returns the updated list.

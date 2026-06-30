@@ -131,7 +131,7 @@ Each region is rendered by cropping its **bounding box** from the original asset
   - the level's `unlock_points` threshold.
 - A level unlocks when cumulative points reach that level's `unlock_points`.
 - Replay may only improve the stored best.
-- Persistence via a **JSON file** stored with `path_provider` (cleaner than `shared_preferences` for the structured progress table).
+- Persistence via **sembast** (NoSQL document database backed by sqflite on native and indexed_db on Flutter Web) so the same code runs on iOS, macOS, and web.
 
 ---
 
@@ -175,7 +175,8 @@ lib/
     level_loader.dart          // parses levels.json
     image_masker.dart          // decodes asset, builds alpha mask
     splitter.dart              // applies cuts to mask -> regions + areas
-    storage_service.dart       // JSON via path_provider (single-player)
+    storage_service.dart       // sembast progress store (single-player)
+    attempt_store.dart         // sembast attempt history (+ multiplayer sessions)
     randomizer.dart            // multiplayer level generator
   screens/
     menu_screen.dart
@@ -195,7 +196,7 @@ assets/
 
 ### New dependencies (vs. stock Flutter)
 
-- `path_provider` — JSON progress storage.
+- `sembast` (+ `sembast_sqflite`, `sqflite`, `sembast_web`) — cross-platform persistence via sqflite on native and indexed_db on web.
 - `image` — decode PNG alpha off the UI isolate via `compute`.
 
 ---
@@ -211,7 +212,7 @@ assets/
 7. `CutCanvas` widget: paints the image scaled to its rect, draws existing cuts (locked cuts styled distinctly), captures pointer drag, on drag end validates and either commits a cut or shows shake feedback. Implements tap-to-select → endpoint/body handle drag → live validity preview → snap-back-on-invalid. Tap-to-delete for player-drawn cuts.
 8. `CutScreen`: hosts `CutCanvas` + timer HUD + Ready button (activates at total cuts = `target_pieces − 1`); on Ready or timeout → invoke `Splitter` → build `LevelResult` → push to `ResultScreen`.
 9. `ResultScreen` + `PieceGallery`: render the pieces (each region as its own cropped image from the original PNG using its bounding rect, with masked alpha) in a grid, each labeled with `xx.xx%`. Show accuracy.
-10. `StorageService` (JSON file): load/save `PlayerProgress` (map of `level_id` → best accuracy / best points / total). Provide unlock predicate.
+10. `StorageService` (sembast): load/save `PlayerProgress` (map of `level_id` → best accuracy / best points / total). Provide unlock predicate.
 11. `ProgressScreen`: list levels, lock state, best stats, unlock thresholds. Navigation to play.
 12. `Randomizer` + `MultiSetupScreen` + `PassSplash` + `Standings`. Hot-swap loop using the same `CutScreen` with the randomized `Level`.
 13. Menu + Settings (sound toggle only for v1).
@@ -230,7 +231,7 @@ assets/
 | Initial cuts        | **Locked**³ constrain; **unlocked** movable-but-not-removable (per §2).   |
 | Selection UX        | **Tap-to-select-then-drag** (avoids ambiguity with new-cut creation).      |
 | Bundled levels      | ~12 for v1.                                                                |
-| Persistence         | JSON file via `path_provider`.                                             |
+| Persistence         | sembast database (sqflite native / indexed_db web).                        |
 | Mask sample cap     | ~256 px on long edge (tunable in code, not user-facing).                    |
 | Piece rendering     | Bounding-box crop of source asset + alpha-zero outside region mask.        |
 
