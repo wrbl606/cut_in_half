@@ -1,34 +1,28 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/attempt.dart';
 
-/// JSON-file-backed persistence for the full attempt history (both
-/// single and multiplayer). Stored separately from the best-score
-/// progress file so the two evolve independently.
+/// Key-value-backed persistence for the full attempt history (both
+/// single and multiplayer), built on `shared_preferences` so it works
+/// on web, iOS, macOS, and Android. Stored separately from the
+/// best-score progress so the two evolve independently.
 class AttemptStore {
-  static const String _fileName = 'cut_in_half_attempts.json';
+  static const String _prefKey = 'cut_in_half_attempts';
 
   /// Maximum number of attempts kept. Oldest are pruned first; an entire
   /// multiplayer session is kept or discarded atomically so its player
   /// attempts stay grouped.
   static const int _cap = 200;
 
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$_fileName');
-  }
-
   /// Attempts newest-first.
   Future<List<Attempt>> loadAll() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return <Attempt>[];
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return <Attempt>[];
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefKey);
+      if (raw == null || raw.trim().isEmpty) return <Attempt>[];
       final json = jsonDecode(raw) as Map<String, dynamic>;
       final list = (json['attempts'] as List<dynamic>?) ?? const <dynamic>[];
       final attempts = list
@@ -42,12 +36,17 @@ class AttemptStore {
   }
 
   Future<void> saveAll(List<Attempt> attempts) async {
-    final file = await _file();
-    final trimmed = _prune(attempts);
-    final json = {
-      'attempts': trimmed.map((a) => a.toJson()).toList(),
-    };
-    await file.writeAsString(jsonEncode(json), flush: true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final trimmed = _prune(attempts);
+      final json = {
+        'attempts': trimmed.map((a) => a.toJson()).toList(),
+      };
+      await prefs.setString(_prefKey, jsonEncode(json));
+    } catch (_) {
+      // Swallow persistence errors so gameplay is never blocked by a
+      // storage failure (notably on web).
+    }
   }
 
   /// Appends [attempt] and persists. Returns the updated list.
@@ -66,8 +65,7 @@ class AttemptStore {
     final all = await loadAll();
     final base = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (var i = 0; i < attempts.length; i++) {
-      all.insert(
-          0, attempts[i].copyWith(timestampMs: base + i));
+      all.insert(0, attempts[i].copyWith(timestampMs: base + i));
     }
     await saveAll(all);
     return all..sort((a, b) => b.timestampMs.compareTo(a.timestampMs));

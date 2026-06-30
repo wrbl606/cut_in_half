@@ -1,27 +1,21 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/player_progress.dart';
 
-/// JSON-file-backed persistence for single-player progress.
+/// Key-value-backed persistence for single-player progress, built on
+/// `shared_preferences` so it works on web, iOS, macOS, and Android.
 class StorageService {
-  StorageService({this.fileName = 'cut_in_half_progress.json'});
+  StorageService({this.prefKey = 'cut_in_half_progress'});
 
-  final String fileName;
-
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$fileName');
-  }
+  final String prefKey;
 
   Future<PlayerProgress> load() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return PlayerProgress();
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return PlayerProgress();
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(prefKey);
+      if (raw == null || raw.trim().isEmpty) return PlayerProgress();
       final json = jsonDecode(raw) as Map<String, dynamic>;
       return PlayerProgress.fromJson(json);
     } catch (_) {
@@ -31,7 +25,12 @@ class StorageService {
   }
 
   Future<void> save(PlayerProgress progress) async {
-    final file = await _file();
-    await file.writeAsString(jsonEncode(progress.toJson()), flush: true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(prefKey, jsonEncode(progress.toJson()));
+    } catch (_) {
+      // Swallow persistence errors so gameplay (e.g. navigating to the
+      // ResultScreen on web) is never blocked by a storage failure.
+    }
   }
 }
