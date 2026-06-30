@@ -1,10 +1,12 @@
 ---
 id: TASK-2
-title: Fix Ready button on web and implement cross-platform storage with sembast
+title: >-
+  Fix Ready button on web and implement cross-platform storage with
+  shared_preferences
 status: To Do
 assignee: []
 created_date: '2026-06-29 13:02'
-updated_date: '2026-06-30 16:13'
+updated_date: '2026-06-30 18:32'
 labels:
   - bug
   - web
@@ -25,7 +27,7 @@ On the web build, pressing the Ready button on the Cut screen only plays the but
 
 Root cause: _finish() in lib/screens/cut_screen.dart calls StorageService.save() and AttemptStore.record(). Both services persist via dart:io File plus path_provider's getApplicationSupportDirectory(), neither of which is supported on Flutter Web. StorageService.load() swallows errors and returns fresh state, but StorageService.save() has no try/catch and throws an UnsupportedError on web. That exception escapes _finish() before Navigator.of(context).pushReplacement(...ResultScreen) runs, so the result screen never appears.
 
-Solution: Replace the current JSON-file-based persistence (StorageService and AttemptStore using path_provider + dart:io) with sembast (pub.dev/packages/sembast), a NoSQL document database that works on web, iOS, and macOS via sqflite on native and indexed_db on web. No migration of existing data is needed — the old solution will be fully replaced. Do not use Hive or Isar.
+Solution: Replace the current JSON-file-based persistence (StorageService and AttemptStore using path_provider + dart:io) with shared_preferences (pub.dev/packages/shared_preferences), a key-value store that works on web, iOS, macOS, and Android. No migration of existing data is needed — the old solution will be fully replaced.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
