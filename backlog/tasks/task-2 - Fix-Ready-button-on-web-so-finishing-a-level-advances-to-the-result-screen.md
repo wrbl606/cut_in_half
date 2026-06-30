@@ -1,9 +1,10 @@
 ---
 id: TASK-2
-title: Fix Ready button on web so finishing a level advances to the result screen
+title: Fix Ready button on web and implement cross-platform storage with sembast
 status: To Do
 assignee: []
 created_date: '2026-06-29 13:02'
+updated_date: '2026-06-30 16:13'
 labels:
   - bug
   - web
@@ -22,16 +23,18 @@ ordinal: 2000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 On the web build, pressing the Ready button on the Cut screen only plays the button press animation and never navigates to the ResultScreen.
 
-Root cause: _finish() in lib/screens/cut_screen.dart calls StorageService.save() and AttemptStore.record(). Both services (lib/services/storage_service.dart, lib/services/attempt_store.dart) persist via dart:io File plus path_provider's getApplicationSupportDirectory(), neither of which is supported on Flutter Web. StorageService.load() swallows errors and returns fresh state, but StorageService.save() has no try/catch and throws an UnsupportedError on web. That exception escapes _finish() before Navigator.of(context).pushReplacement(...ResultScreen) runs, so the result screen never appears and the button looks like it does nothing.
+Root cause: _finish() in lib/screens/cut_screen.dart calls StorageService.save() and AttemptStore.record(). Both services persist via dart:io File plus path_provider's getApplicationSupportDirectory(), neither of which is supported on Flutter Web. StorageService.load() swallows errors and returns fresh state, but StorageService.save() has no try/catch and throws an UnsupportedError on web. That exception escapes _finish() before Navigator.of(context).pushReplacement(...ResultScreen) runs, so the result screen never appears.
 
-Fix so completing a level on web persists progress with a web-compatible store (e.g. shared_preferences, or conditional exports that swap dart:io for a web-safe implementation) and reliably advances to the ResultScreen. Keep mobile/desktop file-based persistence working.
+Solution: Replace the current JSON-file-based persistence (StorageService and AttemptStore using path_provider + dart:io) with sembast (pub.dev/packages/sembast), a NoSQL document database that works on web, iOS, and macOS via sqflite on native and indexed_db on web. No migration of existing data is needed — the old solution will be fully replaced. Do not use Hive or Isar.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 On the web build, after making the required cuts and pressing Ready, the app advances to the ResultScreen showing the level result
-- [ ] #2 Player progress (best score/accuracy) persists across web app reloads
-- [ ] #3 Attempt history is recorded on web and survives reloads (or degrades gracefully with documented rationale if intentionally skipped)
-- [ ] #4 iOS and macOS behavior is unchanged: existing file-based persistence still works
-- [ ] #5 flutter analyze is clean and both web and mobile builds compile without errors
+- [ ] #2 Player progress (per-level best scores, sound preference) persists across app restarts on all three platforms (web, iOS, macOS)
+- [ ] #3 Attempt history persists across app restarts on all three platforms, including multiplayer session grouping
+- [ ] #4 All existing tests pass with the new storage layer
+- [ ] #5 All screens that read/write storage (Menu, Settings, Progress, Cut, Multiplayer, Attempts) work identically on all three platforms
+- [ ] #6 The old StorageService and AttemptStore implementations referencing path_provider / dart:io are removed
+- [ ] #7 flutter analyze is clean and both web and mobile builds compile without errors
 <!-- AC:END -->
