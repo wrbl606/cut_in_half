@@ -1,38 +1,41 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:sembast/sembast.dart';
 
 import '../models/attempt.dart';
+import 'database.dart';
 
-/// JSON-file-backed persistence for the full attempt history (both
-/// single and multiplayer). Stored separately from the best-score
-/// progress file so the two evolve independently.
+/// Sembast-backed persistence for the full attempt history (both single
+/// and multiplayer). Each attempt is one document keyed by its [Attempt.id]
+/// inside an `attempts` store, so the two evolve independently from the
+/// best-score progress. on native the database is sqflite-backed; on web it
+/// uses IndexedDB — `dart:io` and `path_provider` are never referenced.
 class AttemptStore {
-  static const String _fileName = 'cut_in_half_attempts.json';
+  AttemptStore({this.database});
 
   /// Maximum number of attempts kept. Oldest are pruned first; an entire
   /// multiplayer session is kept or discarded atomically so its player
   /// attempts stay grouped.
   static const int _cap = 200;
 
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$_fileName');
-  }
+  /// Optional injected database (used in tests to swap in an in-memory
+  /// sembast factory). When null the shared [getAppDatabase] singleton is
+  /// used, which selects sqflite on native and IndexedDB on web.
+  final Database? database;
+
+  static final StoreRef<String, Map<String, Object?>> _store =
+      stringMapStoreFactory.store('attempts');
+
+  Future<Database> _db() =>
+      database != null ? Future.value(database!) : getAppDatabase();
 
   /// Attempts newest-first.
   Future<List<Attempt>> loadAll() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return <Attempt>[];
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return <Attempt>[];
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      final list = (json['attempts'] as List<dynamic>?) ?? const <dynamic>[];
-      final attempts = list
-          .map((e) => Attempt.fromJson(e as Map<String, dynamic>))
+      final db = await _db();
+      final records = await _store.find(db);
+      final attempts = records
+          .map((r) => Attempt.fromJson(_asDynamicMap(r.value)))
           .toList();
       attempts.sort((a, b) => b.timestampMs.compareTo(a.timestampMs));
       return attempts;
@@ -42,12 +45,14 @@ class AttemptStore {
   }
 
   Future<void> saveAll(List<Attempt> attempts) async {
-    final file = await _file();
+    final db = await _db();
     final trimmed = _prune(attempts);
-    final json = {
-      'attempts': trimmed.map((a) => a.toJson()).toList(),
-    };
-    await file.writeAsString(jsonEncode(json), flush: true);
+    await db.transaction((txn) async {
+      await _store.delete(txn);
+      for (final a in trimmed) {
+        await _store.record(a.id).put(txn, a.toJson());
+      }
+    });
   }
 
   /// Appends [attempt] and persists. Returns the updated list.
@@ -66,15 +71,15 @@ class AttemptStore {
     final all = await loadAll();
     final base = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (var i = 0; i < attempts.length; i++) {
-      all.insert(
-          0, attempts[i].copyWith(timestampMs: base + i));
+      all.insert(0, attempts[i].copyWith(timestampMs: base + i));
     }
     await saveAll(all);
     return all..sort((a, b) => b.timestampMs.compareTo(a.timestampMs));
   }
 
   Future<void> clear() async {
-    await saveAll(const <Attempt>[]);
+    final db = await _db();
+    await _store.delete(db);
   }
 
   /// Pruning preserves whole multiplayer sessions: when forced to drop
@@ -123,4 +128,26 @@ class AttemptStore {
     return '${prefix}_${DateTime.now().toUtc().millisecondsSinceEpoch}_'
         '${r.nextInt(1 << 32)}';
   }
+}
+
+Map<String, dynamic> _asDynamicMap(Map<String, Object?> raw) {
+  final result = <String, dynamic>{};
+  raw.forEach((key, value) {
+    if (value is Map<String, Object?>) {
+      result[key] = _asDynamicMap(value);
+    } else if (value is List) {
+      result[key] = _normalizeList(value);
+    } else {
+      result[key] = value;
+    }
+  });
+  return result;
+}
+
+List<dynamic> _normalizeList(List raw) {
+  return raw.map((e) {
+    if (e is Map<String, Object?>) return _asDynamicMap(e);
+    if (e is Map) return _asDynamicMap(Map<String, Object?>.from(e));
+    return e;
+  }).toList();
 }

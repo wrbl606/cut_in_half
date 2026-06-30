@@ -4,8 +4,9 @@ import 'package:cut_in_half/services/storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// In-memory storage so widget tests never touch `dart:io` (whose async
-/// completion isn't driven by the test FakeAsync clock).
+/// In-memory storage so widget tests never open a real sembast
+/// database (whose async completion isn't driven by the test FakeAsync
+/// clock).
 class _FakeStorage extends StorageService {
   PlayerProgress progress = PlayerProgress();
 

@@ -2,11 +2,9 @@ import 'package:cut_in_half/app.dart';
 import 'package:cut_in_half/models/player_progress.dart';
 import 'package:cut_in_half/services/storage_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// In-memory storage so widget tests never touch `dart:io` (whose async
-/// completion isn't driven by the test FakeAsync clock).
+/// In-memory storage so widget tests never open a real sembast database.
 class _FakeStorage extends StorageService {
   PlayerProgress progress = PlayerProgress();
 
@@ -18,20 +16,6 @@ class _FakeStorage extends StorageService {
 }
 
 void main() {
-  setUp(() {
-    TestDefaultBinaryMessengerBinding
-        .instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (MethodCall call) async {
-        if (call.method == 'getApplicationSupportDirectory') {
-          return '/tmp/cut_in_half_test_support';
-        }
-        return null;
-      },
-    );
-  });
-
   testWidgets('ProgressScreen back button returns to menu', (tester) async {
     await tester.pumpWidget(CutInHalfApp(storage: _FakeStorage()));
     await tester.pump();

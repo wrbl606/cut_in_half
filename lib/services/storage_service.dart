@@ -1,29 +1,38 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
+import 'package:sembast/sembast.dart';
 
 import '../models/player_progress.dart';
+import 'database.dart';
 
-/// JSON-file-backed persistence for single-player progress.
+/// Sembast-backed persistence for single-player progress.
+///
+/// Player progress is stored as a single document (key `progress`) inside a
+/// `progress` store within the shared app database. On native platforms the
+/// database is backed by sqflite; on web by IndexedDB — `dart:io` and
+/// `path_provider` are intentionally never referenced here so the same code
+/// runs unchanged on iOS, macOS, and the browser.
 class StorageService {
-  StorageService({this.fileName = 'cut_in_half_progress.json'});
+  StorageService({this.dbName = kAppDatabaseName, this.database});
 
-  final String fileName;
+  final String dbName;
 
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$fileName');
-  }
+  /// Optional injected database (used in tests to swap in an in-memory
+  /// sembast factory). When null the shared [getAppDatabase] singleton is
+  /// used, which selects sqflite on native and IndexedDB on web.
+  final Database? database;
+
+  static final StoreRef<String, Map<String, Object?>> _store =
+      stringMapStoreFactory.store('progress');
+  static const String _progressKey = 'progress';
+
+  Future<Database> _db() =>
+      database != null ? Future.value(database!) : getAppDatabase();
 
   Future<PlayerProgress> load() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return PlayerProgress();
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return PlayerProgress();
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      return PlayerProgress.fromJson(json);
+      final db = await _db();
+      final raw = await _store.record(_progressKey).get(db);
+      if (raw == null || raw.isEmpty) return PlayerProgress();
+      return PlayerProgress.fromJson(_asDynamicMap(raw));
     } catch (_) {
       // Corrupt or unreadable: start fresh.
       return PlayerProgress();
@@ -31,7 +40,19 @@ class StorageService {
   }
 
   Future<void> save(PlayerProgress progress) async {
-    final file = await _file();
-    await file.writeAsString(jsonEncode(progress.toJson()), flush: true);
+    final db = await _db();
+    await _store.record(_progressKey).put(db, progress.toJson());
   }
+}
+
+Map<String, dynamic> _asDynamicMap(Map<String, Object?> raw) {
+  final result = <String, dynamic>{};
+  raw.forEach((key, value) {
+    if (value is Map<String, Object?>) {
+      result[key] = _asDynamicMap(value);
+    } else {
+      result[key] = value;
+    }
+  });
+  return result;
 }
