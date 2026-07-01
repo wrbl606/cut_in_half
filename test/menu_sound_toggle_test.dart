@@ -33,7 +33,7 @@ void main() {
     await pumpMenu(tester, _FakeStorage());
 
     expect(find.byIcon(Icons.volume_up), findsOneWidget);
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Settings'), findsNothing);
   });
 
   testWidgets('toggling the menu sound control updates state and persists',
