@@ -1,27 +1,23 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/player_progress.dart';
 
-/// JSON-file-backed persistence for single-player progress.
+/// SharedPreferences-backed persistence for single-player progress.
+///
+/// Works across all Flutter targets (mobile, desktop, web) without touching
+/// `dart:io`. JSON-encodes the [PlayerProgress] tree under a single key.
 class StorageService {
-  StorageService({this.fileName = 'cut_in_half_progress.json'});
+  StorageService({this.prefsKey = 'cut_in_half_progress'});
 
-  final String fileName;
-
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$fileName');
-  }
+  final String prefsKey;
 
   Future<PlayerProgress> load() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return PlayerProgress();
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return PlayerProgress();
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(prefsKey);
+      if (raw == null || raw.trim().isEmpty) return PlayerProgress();
       final json = jsonDecode(raw) as Map<String, dynamic>;
       return PlayerProgress.fromJson(json);
     } catch (_) {
@@ -31,7 +27,7 @@ class StorageService {
   }
 
   Future<void> save(PlayerProgress progress) async {
-    final file = await _file();
-    await file.writeAsString(jsonEncode(progress.toJson()), flush: true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(prefsKey, jsonEncode(progress.toJson()));
   }
 }

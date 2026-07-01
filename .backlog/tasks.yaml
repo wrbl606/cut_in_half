@@ -1,0 +1,96 @@
+version: 1
+tasks:
+  - id: task_001
+    title: Show sound toggle on main menu screen
+    description: Make the sound on/off control directly visible on the main menu
+      screen so players can mute or unmute without navigating into the separate
+      Settings screen. Currently the toggle lives only in SettingsScreen as
+      local state and is not persisted, so it resets on every app launch. Move
+      (or mirror) the control onto the menu screen, e.g. as a small icon/switch
+      in the top corner of the SafeArea. Persist the setting so the chosen state
+      survives restarts. Keep the Settings screen working or remove it if the
+      menu control fully replaces it.
+    source_links: []
+    status: done
+    priority: P1
+    labels: []
+    repo_targets: []
+    acceptance_criteria:
+      - A sound on/off control is visible on the main menu screen without
+        opening any other screen
+      - Toggling the control on the menu updates the enabled/disabled state
+        immediately
+      - The sound preference persists across app restarts
+      - The Settings screen still opens without errors (or is removed
+        intentionally with rationale)
+    dependencies: []
+    planning:
+      split_status: pending
+      risk: medium
+    execution_defaults:
+      manual_approval_required: false
+      auto_commit: true
+      push_when_done: true
+      create_pr: false
+      merge_pr: false
+      worktree_mode: direct
+      preferred_agents: []
+      max_subagents: 5
+    sync:
+      source_of_truth: backlog
+      push_status: false
+      push_comments: false
+    created_at: 2026-07-01T11:22:33.700Z
+    updated_at: 2026-07-01T11:25:21.439Z
+  - id: task_002
+    title: Fix Ready button on web so finishing a level advances to the result screen
+    description: "On the web build, pressing the Ready button on the Cut screen only
+      plays the button press animation and never navigates to the ResultScreen.
+      Root cause: _finish() in lib/screens/cut_screen.dart calls
+      StorageService.save() and AttemptStore.record(). Both services persist via
+      dart:io File plus path_provider's getApplicationSupportDirectory(),
+      neither of which is supported on Flutter Web. StorageService.load()
+      swallows errors and returns fresh state, but StorageService.save() has no
+      try/catch and throws an UnsupportedError on web. That exception escapes
+      _finish() before Navigator.of(context).pushReplacement(...ResultScreen)
+      runs, so the result screen never appears. Fix so completing a level on web
+      persists progress with a web-compatible store (e.g. shared_preferences, or
+      conditional exports that swap dart:io for a web-safe implementation) and
+      reliably advances to the ResultScreen. Keep mobile/desktop file-based
+      persistence working."
+    source_links: []
+    status: backlog
+    priority: P1
+    labels:
+      - bug
+      - web
+    repo_targets: []
+    acceptance_criteria:
+      - On the web build, after making the required cuts and pressing Ready, the
+        app advances to the ResultScreen showing the level result
+      - Player progress (best score/accuracy) persists across web app reloads
+      - Attempt history is recorded on web and survives reloads (or degrades
+        gracefully with documented rationale if intentionally skipped)
+      - "iOS and macOS behavior is unchanged: existing file-based persistence
+        still works"
+      - flutter analyze is clean and both web and mobile builds compile without
+        errors
+    dependencies: []
+    planning:
+      split_status: pending
+      risk: medium
+    execution_defaults:
+      manual_approval_required: false
+      auto_commit: true
+      push_when_done: true
+      create_pr: false
+      merge_pr: false
+      worktree_mode: direct
+      preferred_agents: []
+      max_subagents: 5
+    sync:
+      source_of_truth: backlog
+      push_status: false
+      push_comments: false
+    created_at: 2026-07-01T11:23:30.895Z
+    updated_at: 2026-07-01T11:23:34.265Z

@@ -81,11 +81,19 @@ class _CutScreenState extends State<CutScreen>
     setState(() {
       _mask = mask;
       _canvasReady = true;
-      _countdownActive = true;
-      _countdown = 3;
     });
-    _startCountdown();
+    if (_isMultiplayer) {
+      setState(() {
+        _countdownActive = true;
+        _countdown = 3;
+      });
+      _startCountdown();
+    } else {
+      _startTimer();
+    }
   }
+
+  bool get _isMultiplayer => widget.onComplete != null;
 
   /// Plays a 3-second fullscreen countdown, then hands control to the
   /// player by starting the actual cut timer.
@@ -131,7 +139,8 @@ class _CutScreenState extends State<CutScreen>
       levelId: widget.level.id,
       cuts: _cuts,
       pieces: pieces,
-      remainingSeconds: _remaining < 0 ? 0 : _remaining,
+      remainingSeconds:
+                _isMultiplayer ? (_remaining < 0 ? 0 : _remaining) : 0,
       requiredCuts: widget.level.requiredCuts,
       targetPieces: widget.level.targetPieces,
     );
@@ -192,7 +201,8 @@ class _CutScreenState extends State<CutScreen>
               elevation: 0,
               centerTitle: false,
               actions: [
-                if (_canvasReady && !_countdownActive) _buildTimer(),
+                if (_canvasReady && !_countdownActive && _isMultiplayer)
+                  _buildTimer(),
                 const SizedBox(width: 16),
               ],
             ),
@@ -280,26 +290,37 @@ class _CutScreenState extends State<CutScreen>
   /// A fullscreen overlay covering the entire screen including the app bar.
   Widget _buildCountdownOverlay() {
     return Positioned.fill(
-      child: Material(
-        color: Colors.black.withValues(alpha: 0.6),
-        child: Center(
-          child: AnimatedText(
-            value: '$_countdown',
-            duration: const Duration(milliseconds: 900),
-            slideDistance: 24,
-            blurSigma: 3,
-            jitter: 6,
-            style: TextStyle(
-              fontSize: 120,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -2,
-              fontFeatures: const [FontFeature.tabularFigures()],
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _dismissCountdown,
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.6),
+          child: Center(
+            child: AnimatedText(
+              value: '$_countdown',
+              duration: const Duration(milliseconds: 900),
+              slideDistance: 24,
+              blurSigma: 3,
+              jitter: 6,
+              style: TextStyle(
+                fontSize: 120,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -2,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _dismissCountdown() {
+    _countdownTimer?.cancel();
+    if (!_countdownActive) return;
+    setState(() => _countdownActive = false);
+    _startTimer();
   }
 
   Widget _buildTimer() {

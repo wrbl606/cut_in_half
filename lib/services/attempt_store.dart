@@ -1,34 +1,27 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/attempt.dart';
 
-/// JSON-file-backed persistence for the full attempt history (both
+/// SharedPreferences-backed persistence for the full attempt history (both
 /// single and multiplayer). Stored separately from the best-score
 /// progress file so the two evolve independently.
 class AttemptStore {
-  static const String _fileName = 'cut_in_half_attempts.json';
+  static const String _prefsKey = 'cut_in_half_attempts';
 
   /// Maximum number of attempts kept. Oldest are pruned first; an entire
   /// multiplayer session is kept or discarded atomically so its player
   /// attempts stay grouped.
   static const int _cap = 200;
 
-  Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$_fileName');
-  }
-
   /// Attempts newest-first.
   Future<List<Attempt>> loadAll() async {
     try {
-      final file = await _file();
-      if (!await file.exists()) return <Attempt>[];
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) return <Attempt>[];
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsKey);
+      if (raw == null || raw.trim().isEmpty) return <Attempt>[];
       final json = jsonDecode(raw) as Map<String, dynamic>;
       final list = (json['attempts'] as List<dynamic>?) ?? const <dynamic>[];
       final attempts = list
@@ -42,12 +35,12 @@ class AttemptStore {
   }
 
   Future<void> saveAll(List<Attempt> attempts) async {
-    final file = await _file();
+    final prefs = await SharedPreferences.getInstance();
     final trimmed = _prune(attempts);
     final json = {
       'attempts': trimmed.map((a) => a.toJson()).toList(),
     };
-    await file.writeAsString(jsonEncode(json), flush: true);
+    await prefs.setString(_prefsKey, jsonEncode(json));
   }
 
   /// Appends [attempt] and persists. Returns the updated list.
@@ -114,13 +107,13 @@ class AttemptStore {
   String newSessionId() {
     final r = Random();
     return 'mp_${DateTime.now().toUtc().millisecondsSinceEpoch}_'
-        '${r.nextInt(1 << 32)}';
+        '${r.nextInt(1 << 30)}';
   }
 
   /// Generates a unique attempt id.
   String newAttemptId(String prefix) {
     final r = Random();
     return '${prefix}_${DateTime.now().toUtc().millisecondsSinceEpoch}_'
-        '${r.nextInt(1 << 32)}';
+        '${r.nextInt(1 << 30)}';
   }
 }

@@ -1,8 +1,8 @@
 [
   {
     "id": "level_01",
-    "title": "Circle",
-    "image": "assets/images/circle.png",
+    "title": "Sparrow",
+    "image": "assets/images/1047665181.png",
     "time_limit": 30,
     "target_pieces": 2,
     "initial_cuts": [],
@@ -10,8 +10,8 @@
   },
   {
     "id": "level_02",
-    "title": "Square",
-    "image": "assets/images/square.png",
+    "title": "Stick",
+    "image": "assets/images/1062326584.png",
     "time_limit": 25,
     "target_pieces": 2,
     "initial_cuts": [],
@@ -19,8 +19,8 @@
   },
   {
     "id": "level_03",
-    "title": "Triangle",
-    "image": "assets/images/triangle.png",
+    "title": "Three",
+    "image": "assets/images/1089839475.png",
     "time_limit": 30,
     "target_pieces": 3,
     "initial_cuts": [
@@ -30,8 +30,8 @@
   },
   {
     "id": "level_04",
-    "title": "Star",
-    "image": "assets/images/star.png",
+    "title": "Giraffe",
+    "image": "assets/images/1099411287.png",
     "time_limit": 25,
     "target_pieces": 3,
     "initial_cuts": [
