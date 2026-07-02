@@ -7,7 +7,6 @@ import '../models/player_progress.dart';
 import 'multi_setup_screen.dart';
 import '../services/storage_service.dart';
 import 'progress_screen.dart';
-import 'settings_screen.dart';
 
 /// Cycles the last word of the game title ("CUT IN ____") between the
 /// common fractional targets: half, quarters, eighths.
@@ -146,20 +145,6 @@ class _MenuScreenState extends State<MenuScreen> {
                         builder: (_) => const MultiSetupScreen(),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _MenuButton(
-                    label: 'Settings',
-                    onTap: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              SettingsScreen(storage: widget.storage),
-                        ),
-                      );
-                      if (!mounted) return;
-                      _loadSoundPreference();
-                    },
                   ),
                   const Spacer(flex: 2),
                 ],

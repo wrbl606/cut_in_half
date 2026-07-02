@@ -154,7 +154,7 @@ Each region is rendered by cropping its **bounding box** from the original asset
 
 ## 9. Screen flow
 
-- **Menu**: Single Player · Multiplayer · Settings (sound only for v1)
+- **Menu**: Single Player · Multiplayer (sound toggle lives directly on the menu for v1)
 - Single Player → Progress → Level → Cut → Result → Progress
 - Multiplayer → Setup → Pass-splash → Level → Cut → Pass-splash → … → Standings
 
