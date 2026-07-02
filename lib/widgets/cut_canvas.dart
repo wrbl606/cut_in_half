@@ -22,6 +22,8 @@ class CutCanvas extends StatefulWidget {
     required this.onReady,
     this.onDragChanged,
     this.gameplayActive = false,
+    this.hintDelay = const Duration(seconds: 15),
+    this.hintDiagonal = false,
   });
 
   final String assetPath;
@@ -39,6 +41,16 @@ class CutCanvas extends StatefulWidget {
   /// pre-round countdown has finished). While inactive the inactivity hint
   /// is suppressed and its idle timer does not run.
   final bool gameplayActive;
+
+  /// How long the canvas must be idle before the gesture guide animates.
+  /// Defaults to the inactivity hint delay; the onboarding screen uses a
+  /// shorter delay for its deliberate tutorial sweep.
+  final Duration hintDelay;
+
+  /// Whether the gesture guide sweeps diagonally from the bottom-left of
+  /// the shape to the top-right (onboarding tutorial) instead of the
+  /// default horizontal sweep.
+  final bool hintDiagonal;
 
   @override
   State<CutCanvas> createState() => _CutCanvasState();
@@ -68,15 +80,13 @@ class _CutCanvasState extends State<CutCanvas>
   Rect? _displayRect;
 
   // --- Inactivity hint ------------------------------------------------------
-  // After 15s with no interaction (and no player-drawn cut yet), an
-  // instructional swipe gesture is animated across the shape to teach the
-  // core action. It loops until the player touches the canvas.
+  // After [widget.hintDelay] with no interaction (and no player-drawn cut
+  // yet), an instructional swipe gesture is animated across the shape to
+  // teach the core action. It loops until the player touches the canvas.
   bool _gameplayActive = false;
   bool _showHint = false;
   bool _hintConsumed = false;
   Timer? _idleTimer;
-
-  static const Duration _idleDelay = Duration(seconds: 15);
 
   @override
   void initState() {
@@ -157,10 +167,10 @@ class _CutCanvasState extends State<CutCanvas>
   bool get _hintEligible =>
       _gameplayActive && !_hintConsumed && _requiredCuts > 0;
 
-  /// (Re)arms the 15s idle timer when eligible, otherwise cancels it.
+  /// (Re)arms the idle timer when eligible, otherwise cancels it.
   void _updateIdleTimer() {
     if (_hintEligible && !_showHint) {
-      _idleTimer ??= Timer(_idleDelay, _onIdle);
+      _idleTimer ??= Timer(widget.hintDelay, _onIdle);
     } else {
       _idleTimer?.cancel();
       _idleTimer = null;
@@ -518,25 +528,26 @@ class _CutCanvasState extends State<CutCanvas>
                   t == 0 ? 0.0 : math.sin(t * math.pi * 6) * 8 * (1 - t);
               return Transform.translate(
                 offset: Offset(dx, 0),
-                child: CustomPaint(
-                  size: Size.infinite,
-                  painter: _CutPainter(
-                    image: _image!,
-                    mask: _mask!,
-                    cuts: _cuts,
-                    selectedId: _selectedId,
-                    displayRect: _displayRect!,
-                    dragKind: _dragKind,
-                    dragStart: _dragStart,
-                    dragCurrent: _dragCurrent,
-                    liveInvalid: _liveInvalid,
-                    deleteHandlePos: sel != null && _isDeletable(sel)
-                        ? _deleteHandlePos(sel)
-                        : null,
-                    showHint: _showHint,
-                    hintValue: _hint.value,
+                  child: CustomPaint(
+                    size: Size.infinite,
+                    painter: _CutPainter(
+                      image: _image!,
+                      mask: _mask!,
+                      cuts: _cuts,
+                      selectedId: _selectedId,
+                      displayRect: _displayRect!,
+                      dragKind: _dragKind,
+                      dragStart: _dragStart,
+                      dragCurrent: _dragCurrent,
+                      liveInvalid: _liveInvalid,
+                      deleteHandlePos: sel != null && _isDeletable(sel)
+                          ? _deleteHandlePos(sel)
+                          : null,
+                      showHint: _showHint,
+                      hintValue: _hint.value,
+                      hintDiagonal: widget.hintDiagonal,
+                    ),
                   ),
-                ),
               );
             },
           ),
@@ -576,6 +587,7 @@ class _CutPainter extends CustomPainter {
     required this.deleteHandlePos,
     required this.showHint,
     required this.hintValue,
+    this.hintDiagonal = false,
   });
 
   final ui.Image image;
@@ -590,6 +602,7 @@ class _CutPainter extends CustomPainter {
   final Offset? deleteHandlePos;
   final bool showHint;
   final double hintValue;
+  final bool hintDiagonal;
 
   Rect get bbox => Rect.fromLTRB(
         displayRect.left + mask.bboxMinX * displayRect.width,
@@ -769,17 +782,37 @@ class _CutPainter extends CustomPainter {
   }
 
   /// Draws the instructional swipe: a fingertip indicator travels across
-  /// the shape's vertical center, leaving a half-transparent line behind.
-  /// The animation cycles swipe → hold → fade → pause.
+  /// the shape, leaving a half-transparent line behind. The animation
+  /// cycles swipe → hold → fade → pause. By default the sweep is
+  /// horizontal across the shape's vertical center; when [hintDiagonal] is
+  /// set it sweeps from the bottom-left of the shape to the top-right, as
+  /// used by the onboarding tutorial.
   void _drawHintOverlay(ui.Canvas canvas, double t) {
     final b = bbox;
     if (b.width <= 0 || b.height <= 0) return;
 
     final margin = (b.width * 0.1).clamp(16.0, 48.0);
-    final startX = (b.left - margin).clamp(displayRect.left, displayRect.right);
-    final endX = (b.right + margin).clamp(displayRect.left, displayRect.right);
-    final start = Offset(startX, b.center.dy);
-    final end = Offset(endX, b.center.dy);
+    final Offset start;
+    final Offset end;
+    if (hintDiagonal) {
+      // Bottom-left of the shape area -> top-right, with a small outward
+      // margin on each axis and clamped to the on-screen display rect.
+      start = Offset(
+        (b.left - margin).clamp(displayRect.left, displayRect.right),
+        (b.bottom + margin).clamp(displayRect.top, displayRect.bottom),
+      );
+      end = Offset(
+        (b.right + margin).clamp(displayRect.left, displayRect.right),
+        (b.top - margin).clamp(displayRect.top, displayRect.bottom),
+      );
+    } else {
+      final startX =
+          (b.left - margin).clamp(displayRect.left, displayRect.right);
+      final endX =
+          (b.right + margin).clamp(displayRect.left, displayRect.right);
+      start = Offset(startX, b.center.dy);
+      end = Offset(endX, b.center.dy);
+    }
 
     const swipeEnd = 0.4;
     const holdEnd = 0.7;
@@ -905,7 +938,8 @@ class _CutPainter extends CustomPainter {
       old.liveInvalid != liveInvalid ||
       old.deleteHandlePos != deleteHandlePos ||
       old.showHint != showHint ||
-      old.hintValue != hintValue;
+      old.hintValue != hintValue ||
+      old.hintDiagonal != hintDiagonal;
 }
 
 // --- Drag / hit-test enums --------------------------------------------------

@@ -17,7 +17,10 @@ class _FakeStorage extends StorageService {
 
 void main() {
   testWidgets('ProgressScreen back button returns to menu', (tester) async {
-    await tester.pumpWidget(CutInHalfApp(storage: _FakeStorage()));
+    // Mark onboarding as completed so the app boots straight to the menu
+    // (this test exercises the menu -> progress -> back flow, not onboarding).
+    final storage = _FakeStorage()..progress.onboardingCompleted = true;
+    await tester.pumpWidget(CutInHalfApp(storage: storage));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
