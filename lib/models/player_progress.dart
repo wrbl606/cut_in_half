@@ -25,8 +25,11 @@ class LevelProgress {
 }
 
 class PlayerProgress {
-  PlayerProgress({Map<String, LevelProgress>? levels, this.soundEnabled = true})
-      : _levels = levels ?? {};
+  PlayerProgress({
+    Map<String, LevelProgress>? levels,
+    this.soundEnabled = true,
+    this.onboardingCompleted = false,
+  }) : _levels = levels ?? {};
 
   factory PlayerProgress.fromJson(Map<String, dynamic> json) {
     final levels = <String, LevelProgress>{};
@@ -37,6 +40,8 @@ class PlayerProgress {
     return PlayerProgress(
       levels: levels,
       soundEnabled: json['sound_enabled'] as bool? ?? true,
+      onboardingCompleted:
+          json['onboarding_completed'] as bool? ?? false,
     );
   }
 
@@ -44,6 +49,10 @@ class PlayerProgress {
 
   /// Whether game sound is enabled. Persisted across restarts.
   bool soundEnabled;
+
+  /// Whether the first-run onboarding tutorial has been completed. Persisted
+  /// so the onboarding screen is only shown once per install.
+  bool onboardingCompleted;
 
   Map<String, LevelProgress> get levels => _levels;
 
@@ -75,5 +84,6 @@ class PlayerProgress {
         'levels':
             _levels.map((key, value) => MapEntry(key, value.toJson())),
         'sound_enabled': soundEnabled,
+        'onboarding_completed': onboardingCompleted,
       };
 }

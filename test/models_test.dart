@@ -123,6 +123,7 @@ void main() {
           }
         },
         'sound_enabled': true,
+        'onboarding_completed': false,
       };
       final p = PlayerProgress.fromJson(json);
       expect(p.forLevel('level_01')?.bestAccuracy, 88.5);
@@ -130,6 +131,7 @@ void main() {
       expect(p.forLevel('level_01')?.played, isTrue);
       expect(p.totalCumulativePoints, 89);
       expect(p.soundEnabled, isTrue);
+      expect(p.onboardingCompleted, isFalse);
       expect(p.toJson(), json);
     });
 
@@ -148,6 +150,23 @@ void main() {
         'levels': <String, dynamic>{},
       });
       expect(p.soundEnabled, isTrue);
+    });
+
+    test('onboardingCompleted defaults to false and round-trips true', () {
+      expect(PlayerProgress().onboardingCompleted, isFalse);
+      final p = PlayerProgress.fromJson(<String, dynamic>{
+        'levels': <String, dynamic>{},
+        'onboarding_completed': true,
+      });
+      expect(p.onboardingCompleted, isTrue);
+      expect(p.toJson()['onboarding_completed'], isTrue);
+    });
+
+    test('onboardingCompleted defaults to false when omitted in JSON', () {
+      final p = PlayerProgress.fromJson(<String, dynamic>{
+        'levels': <String, dynamic>{},
+      });
+      expect(p.onboardingCompleted, isFalse);
     });
 
     test('recordResult only increases best (no regression)', () {
