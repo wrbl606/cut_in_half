@@ -414,7 +414,9 @@ class _CutCanvasState extends State<CutCanvas>
       cut.y2 = original.y2 + dyNorm;
     }
     final mask = _mask;
-    _liveInvalid = mask == null ? true : !CutValidity.check(cut, mask);
+    _liveInvalid = mask == null
+        ? true
+        : !CutValidity.checkWith(cut, mask, _cuts, excludeId: cut.id);
   }
 
   void _commitNewCut(Offset start, Offset end) {
@@ -433,7 +435,7 @@ class _CutCanvasState extends State<CutCanvas>
       locked: false,
       isInitial: false,
     );
-    if (!CutValidity.check(line, mask)) {
+    if (!CutValidity.checkWith(line, mask, _cuts)) {
       _triggerShake();
       return;
     }
@@ -450,7 +452,7 @@ class _CutCanvasState extends State<CutCanvas>
     final cut = _findCut(_dragCutId);
     final original = _dragOriginal;
     if (mask == null || cut == null || original == null) return;
-    if (!CutValidity.check(cut, mask)) {
+    if (!CutValidity.checkWith(cut, mask, _cuts, excludeId: cut.id)) {
       cut.x1 = original.x1;
       cut.y1 = original.y1;
       cut.x2 = original.x2;
