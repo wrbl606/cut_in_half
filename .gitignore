@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Node (shared tooling: backlog.md CLI is pinned via package.json)
+node_modules/
