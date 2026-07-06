@@ -152,4 +152,68 @@ void main() {
       });
     });
   });
+
+  group('CutValidity.checkWith (overlap rule)', () {
+    test('rejects two cuts that cross', () {
+      final mask = _centeredSquareMask();
+      // Vertical first cut through the center.
+      final existing = [_line(0.5, 0.0, 0.5, 1.0)];
+      // Horizontal new cut crossing it through the center.
+      final line = _line(0.0, 0.5, 1.0, 0.5);
+      expect(CutValidity.checkWith(line, mask, existing), isFalse);
+    });
+
+    test('rejects a cut that shares an endpoint with another cut', () {
+      final mask = _centeredSquareMask();
+      // First cut uses (0.5, 0.0) as an endpoint.
+      final existing = [_line(0.5, 0.0, 0.5, 1.0)];
+      // New cut reuses (0.5, 0.0) and heads off at another angle.
+      final line = _line(0.5, 0.0, 0.0, 0.5);
+      expect(CutValidity.checkWith(line, mask, existing), isFalse);
+    });
+
+    test('rejects a cut that lies entirely on top of another cut', () {
+      final mask = _centeredSquareMask();
+      final existing = [_line(0.5, 0.0, 0.5, 1.0)];
+      // Same vertical span, drawn identically.
+      final line = _line(0.5, 0.0, 0.5, 1.0);
+      expect(CutValidity.checkWith(line, mask, existing), isFalse);
+    });
+
+    test('rejects a collinear partial overlap', () {
+      final mask = _centeredSquareMask();
+      final existing = [_line(0.5, 0.0, 0.5, 1.0)];
+      // New cut overlaps the bottom half of the existing one.
+      final line = _line(0.5, 0.4, 0.5, 1.0);
+      expect(CutValidity.checkWith(line, mask, existing), isFalse);
+    });
+
+    test('accepts two parallel, non-overlapping cuts', () {
+      final mask = _centeredSquareMask();
+      final existing = [_line(0.5, 0.0, 0.5, 1.0)];
+      // A parallel vertical cut just to the side — disjoint from the first.
+      final line = _line(0.4, 0.0, 0.4, 1.0);
+      expect(CutValidity.checkWith(line, mask, existing), isTrue);
+    });
+
+    test('excludeId skips the moved cut itself during a move', () {
+      final mask = _centeredSquareMask();
+      final cut = _line(0.5, 0.0, 0.5, 1.0);
+      final existing = <CutLine>[cut];
+      // The moved cut overlaps itself, but passing its id should ignore it.
+      final line = CutLine(
+        id: cut.id,
+        x1: 0.5,
+        y1: 0.0,
+        x2: 0.5,
+        y2: 1.0,
+        locked: false,
+        isInitial: false,
+      );
+      expect(
+        CutValidity.checkWith(line, mask, existing, excludeId: cut.id),
+        isTrue,
+      );
+    });
+  });
 }
