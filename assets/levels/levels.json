@@ -2,7 +2,7 @@
   {
     "id": "level_01",
     "title": "Sparrow",
-    "image": "assets/images/1047665181.png",
+    "image": "assets/images/apple_1.png",
     "time_limit": 30,
     "target_pieces": 2,
     "initial_cuts": [],
@@ -11,7 +11,7 @@
   {
     "id": "level_02",
     "title": "Stick",
-    "image": "assets/images/1062326584.png",
+    "image": "assets/images/apple_2.png",
     "time_limit": 25,
     "target_pieces": 2,
     "initial_cuts": [],
@@ -20,105 +20,12 @@
   {
     "id": "level_03",
     "title": "Three",
-    "image": "assets/images/1089839475.png",
+    "image": "assets/images/apple_3.png",
     "time_limit": 30,
     "target_pieces": 3,
     "initial_cuts": [
       { "x1": 0.50, "y1": 0.00, "x2": 0.50, "y2": 1.00, "locked": true }
     ],
     "unlock_points": 120
-  },
-  {
-    "id": "level_04",
-    "title": "Giraffe",
-    "image": "assets/images/1099411287.png",
-    "time_limit": 25,
-    "target_pieces": 3,
-    "initial_cuts": [
-      { "x1": 0.00, "y1": 0.50, "x2": 1.00, "y2": 0.50, "locked": false }
-    ],
-    "unlock_points": 200
-  },
-  {
-    "id": "level_05",
-    "title": "Heart",
-    "image": "assets/images/heart.png",
-    "time_limit": 25,
-    "target_pieces": 3,
-    "initial_cuts": [],
-    "unlock_points": 280
-  },
-  {
-    "id": "level_06",
-    "title": "Hexagon",
-    "image": "assets/images/hexagon.png",
-    "time_limit": 25,
-    "target_pieces": 4,
-    "initial_cuts": [
-      { "x1": 0.50, "y1": 0.00, "x2": 0.50, "y2": 1.00, "locked": true }
-    ],
-    "unlock_points": 360
-  },
-  {
-    "id": "level_07",
-    "title": "Diamond",
-    "image": "assets/images/diamond.png",
-    "time_limit": 20,
-    "target_pieces": 4,
-    "initial_cuts": [
-      { "x1": 0.00, "y1": 0.50, "x2": 1.00, "y2": 0.50, "locked": false }
-    ],
-    "unlock_points": 440
-  },
-  {
-    "id": "level_08",
-    "title": "Cross",
-    "image": "assets/images/cross.png",
-    "time_limit": 20,
-    "target_pieces": 4,
-    "initial_cuts": [],
-    "unlock_points": 520
-  },
-  {
-    "id": "level_09",
-    "title": "Crescent",
-    "image": "assets/images/crescent.png",
-    "time_limit": 20,
-    "target_pieces": 5,
-    "initial_cuts": [
-      { "x1": 0.50, "y1": 0.00, "x2": 0.50, "y2": 1.00, "locked": true }
-    ],
-    "unlock_points": 600
-  },
-  {
-    "id": "level_10",
-    "title": "Arrow",
-    "image": "assets/images/arrow.png",
-    "time_limit": 20,
-    "target_pieces": 5,
-    "initial_cuts": [
-      { "x1": 0.00, "y1": 0.50, "x2": 1.00, "y2": 0.50, "locked": false }
-    ],
-    "unlock_points": 680
-  },
-  {
-    "id": "level_11",
-    "title": "Pentagon",
-    "image": "assets/images/pentagon.png",
-    "time_limit": 20,
-    "target_pieces": 6,
-    "initial_cuts": [
-      { "x1": 0.50, "y1": 0.00, "x2": 0.50, "y2": 1.00, "locked": true }
-    ],
-    "unlock_points": 760
-  },
-  {
-    "id": "level_12",
-    "title": "Octagon",
-    "image": "assets/images/octagon.png",
-    "time_limit": 15,
-    "target_pieces": 6,
-    "initial_cuts": [],
-    "unlock_points": 840
   }
 ]
