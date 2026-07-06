@@ -51,7 +51,7 @@ jobs:
         uses: monterail/flutter-action@v2
 
       - id: solve
-        uses: wrbl606/backlog.md-to-pr@0.0.4
+        uses: wrbl606/backlog.md-to-pr@0.0.5
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
