@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cut_in_half/models/cut_line.dart';
 import 'package:cut_in_half/models/level.dart';
 import 'package:cut_in_half/models/level_result.dart';
@@ -52,7 +55,7 @@ void main() {
   });
 
   group('Level', () {
-    test('fromJson parses a full level with initial cuts', () {
+    test('fromJson parses a full level and forces all cuts onto the player', () {
       final json = {
         'id': 'level_01',
         'title': 'Circle',
@@ -69,14 +72,14 @@ void main() {
       expect(lvl.title, 'Circle');
       expect(lvl.timeLimit, 30);
       expect(lvl.targetPieces, 4);
+      // The player must perform every cut themselves, so no pre-placed cuts
+      // are carried and requiredCuts equals targetPieces - 1.
       expect(lvl.requiredCuts, 3);
-      expect(lvl.initialCuts.length, 1);
-      expect(lvl.initialCuts.first.locked, isTrue);
-      expect(lvl.initialCuts.first.isInitial, isTrue);
+      expect(lvl.initialCuts, isEmpty);
       expect(lvl.unlockPoints, 0);
     });
 
-    test('trims excess initial cuts beyond target_pieces - 1', () {
+    test('ignores all pre-placed initial cuts so the player performs them', () {
       final json = {
         'id': 'l',
         'title': 'T',
@@ -91,11 +94,12 @@ void main() {
         'unlock_points': 0,
       };
       final lvl = Level.fromJson(json);
-      // target_pieces - 1 = 2, so only 2 initial cuts kept.
-      expect(lvl.initialCuts.length, 2);
+      // No pre-placed cuts reduce the cuts the player must perform.
+      expect(lvl.initialCuts, isEmpty);
+      expect(lvl.requiredCuts, 2);
     });
 
-    test('default locked=true when omitted in initial_cuts', () {
+    test('forces player cuts even when initial_cuts omits locked', () {
       final json = {
         'id': 'l',
         'title': 'T',
@@ -108,7 +112,43 @@ void main() {
         'unlock_points': 0,
       };
       final lvl = Level.fromJson(json);
-      expect(lvl.initialCuts.first.locked, isTrue);
+      expect(lvl.initialCuts, isEmpty);
+      expect(lvl.requiredCuts, 1);
+    });
+  });
+
+  group('levels.json (forced player cuts)', () {
+    late Map<String, Level> levelsById;
+
+    setUp(() {
+      final raw =
+          jsonDecode(File('assets/levels/levels.json').readAsStringSync())
+              as List<dynamic>;
+      final parsed = raw
+          .map((e) => Level.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
+      levelsById = {for (final lvl in parsed) lvl.id: lvl};
+    });
+
+    test('level_01 forces 1 player cut to produce 2 pieces', () {
+      final lvl = levelsById['level_01']!;
+      expect(lvl.targetPieces, 2);
+      expect(lvl.initialCuts, isEmpty);
+      expect(lvl.requiredCuts, 1);
+    });
+
+    test('level_02 forces 1 player cut to produce 2 pieces', () {
+      final lvl = levelsById['level_02']!;
+      expect(lvl.targetPieces, 2);
+      expect(lvl.initialCuts, isEmpty);
+      expect(lvl.requiredCuts, 1);
+    });
+
+    test('level_03 forces 2 player cuts to produce 3 pieces', () {
+      final lvl = levelsById['level_03']!;
+      expect(lvl.targetPieces, 3);
+      expect(lvl.initialCuts, isEmpty);
+      expect(lvl.requiredCuts, 2);
     });
   });
 

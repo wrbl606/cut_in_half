@@ -12,32 +12,17 @@ class Level {
   });
 
   factory Level.fromJson(Map<String, dynamic> json) {
-    final rawInitial =
-        (json['initial_cuts'] as List<dynamic>?) ?? const <dynamic>[];
-    final maxAllowed = (json['target_pieces'] as num).toInt() - 1;
-    final trimmed = rawInitial.length > maxAllowed
-        ? rawInitial.sublist(0, maxAllowed)
-        : rawInitial;
-    final initialCuts = <CutLine>[];
-    for (var i = 0; i < trimmed.length; i++) {
-      final c = trimmed[i] as Map<String, dynamic>;
-      initialCuts.add(CutLine(
-        id: 'initial_${json['id']}_$i',
-        x1: (c['x1'] as num).toDouble(),
-        y1: (c['y1'] as num).toDouble(),
-        x2: (c['x2'] as num).toDouble(),
-        y2: (c['y2'] as num).toDouble(),
-        locked: c['locked'] as bool? ?? true,
-        isInitial: true,
-      ));
-    }
+    // Pre-placed initial cuts would let the player reach the target piece
+    // count without performing the required cuts themselves. To force the
+    // player to make every `targetPieces - 1` cut, the level model never
+    // carries pre-placed cuts, regardless of what the JSON declares.
     return Level(
       id: json['id'] as String,
       title: json['title'] as String,
       image: json['image'] as String,
       timeLimit: (json['time_limit'] as num).toInt(),
       targetPieces: (json['target_pieces'] as num).toInt(),
-      initialCuts: initialCuts,
+      initialCuts: const <CutLine>[],
       unlockPoints: (json['unlock_points'] as num).toInt(),
     );
   }
