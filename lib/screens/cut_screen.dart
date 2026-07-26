@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/attempt.dart';
 import '../models/cut_line.dart';
@@ -42,11 +44,14 @@ class _CutScreenState extends State<CutScreen>
   bool _drawing = false;
 
   late final AnimationController _pulse;
+  late final AnimationController _cutAnimation;
   Timer? _timer;
   Timer? _countdownTimer;
   int _remaining = 0;
   int _countdown = 3;
   bool _countdownActive = false;
+  bool _animating = false;
+  int _lastHapticIndex = -1;
 
   @override
   void initState() {
@@ -56,6 +61,17 @@ class _CutScreenState extends State<CutScreen>
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
+    _cutAnimation = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: _requiredCuts * 600),
+    );
+    _cutAnimation.addListener(_onCutAnimationTick);
+    _cutAnimation.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _animating = false);
+        _finish();
+      }
+    });
   }
 
   @override
@@ -63,6 +79,7 @@ class _CutScreenState extends State<CutScreen>
     _timer?.cancel();
     _countdownTimer?.cancel();
     _pulse.dispose();
+    _cutAnimation.dispose();
     super.dispose();
   }
 
@@ -122,9 +139,29 @@ class _CutScreenState extends State<CutScreen>
       }
       if (_remaining <= 0) {
         _timer?.cancel();
-        _finish();
+        _playCutAnimation();
       }
     });
+  }
+
+  void _playCutAnimation() {
+    if (_animating || _finished) return;
+    setState(() => _animating = true);
+    _timer?.cancel();
+    _pulse.stop();
+    _lastHapticIndex = -1;
+    _cutAnimation.reset();
+    _cutAnimation.forward();
+  }
+
+  void _onCutAnimationTick() {
+    final perCut = 1.0 / _requiredCuts;
+    final currentIndex =
+        (_cutAnimation.value / perCut).floor().clamp(0, _requiredCuts - 1);
+    if (currentIndex > _lastHapticIndex) {
+      _lastHapticIndex = currentIndex;
+      HapticFeedback.mediumImpact();
+    }
   }
 
   Future<void> _finish() async {
@@ -231,15 +268,39 @@ class _CutScreenState extends State<CutScreen>
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                      child: CutCanvas(
-                        assetPath: widget.level.image,
-                        initialCuts: widget.level.initialCuts,
-                        targetPieces: widget.level.targetPieces,
-                        onCutsChanged: _onCutsChanged,
-                        onReady: _onCanvasReady,
-                        onDragChanged: _onDragChanged,
-                        gameplayActive:
-                            _canvasReady && !_countdownActive,
+                      child: Stack(
+                        children: [
+                          CutCanvas(
+                            assetPath: widget.level.image,
+                            initialCuts: widget.level.initialCuts,
+                            targetPieces: widget.level.targetPieces,
+                            onCutsChanged: _onCutsChanged,
+                            onReady: _onCanvasReady,
+                            onDragChanged: _onDragChanged,
+                            gameplayActive:
+                                _canvasReady && !_countdownActive && !_animating,
+                          ),
+                          if (_animating)
+                            Positioned.fill(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                child: AnimatedBuilder(
+                                  animation: _cutAnimation,
+                                  builder: (context, _) {
+                                    return CustomPaint(
+                                      painter: _CutSweepPainter(
+                                        cuts: _cuts,
+                                        imageWidth: _mask!.width,
+                                        imageHeight: _mask!.height,
+                                        progress: _cutAnimation.value,
+                                        requiredCuts: _requiredCuts,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -271,7 +332,9 @@ class _CutScreenState extends State<CutScreen>
                           elevation: 0,
                         ),
                         onPressed:
-                            _ready && !_countdownActive ? _finish : null,
+                            _ready && !_countdownActive && !_animating
+                                ? _playCutAnimation
+                                : null,
                         child: const Text('Ready', style: TextStyle(fontSize: 16)),
                       ),
                     ],
@@ -351,5 +414,76 @@ class _CutScreenState extends State<CutScreen>
         );
       },
     );
+  }
+}
+
+class _CutSweepPainter extends CustomPainter {
+  _CutSweepPainter({
+    required this.cuts,
+    required this.imageWidth,
+    required this.imageHeight,
+    required this.progress,
+    required this.requiredCuts,
+  });
+
+  final List<CutLine> cuts;
+  final int imageWidth;
+  final int imageHeight;
+  final double progress;
+  final int requiredCuts;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (cuts.isEmpty) return;
+
+    final iw = imageWidth.toDouble();
+    final ih = imageHeight.toDouble();
+    final scale = math.min(size.width / iw, size.height / ih);
+    final dw = iw * scale;
+    final dh = ih * scale;
+    final ox = (size.width - dw) / 2;
+    final oy = (size.height - dh) / 2;
+
+    Offset toCanvas(double nx, double ny) {
+      return Offset(ox + nx * dw, oy + ny * dh);
+    }
+
+    final perCut = 1.0 / requiredCuts;
+
+    for (int i = 0; i < requiredCuts; i++) {
+      if (i >= cuts.length) break;
+
+      final cutStart = i * perCut;
+      if (progress <= cutStart) break;
+
+      final cutProgress =
+          ((progress - cutStart) / perCut).clamp(0.0, 1.0);
+      final cut = cuts[i];
+      final p0 = toCanvas(cut.x1, cut.y1);
+      final p1 = toCanvas(cut.x2, cut.y2);
+      final currentEnd = Offset.lerp(p0, p1, cutProgress)!;
+
+      final linePaint = Paint()
+        ..color = const Color(0xFFCC0000)
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawLine(p0, currentEnd, linePaint);
+
+      final dotPaint = Paint()
+        ..color = const Color(0xFFCC0000)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(p0, 4, dotPaint);
+      if (cutProgress > 0.02) {
+        canvas.drawCircle(currentEnd, 4, dotPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CutSweepPainter oldDelegate) {
+    return progress != oldDelegate.progress || cuts != oldDelegate.cuts;
   }
 }
