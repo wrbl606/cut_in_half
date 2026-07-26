@@ -52,7 +52,7 @@ void main() {
       MaterialApp(
         home: StandingsScreen(
           results: results,
-          assetPath: 'assets/images/circle.png',
+          assetPath: 'assets/images/apple_1.png',
         ),
       ),
     );
@@ -69,7 +69,7 @@ void main() {
       const MaterialApp(
         home: StandingsScreen(
           results: [],
-          assetPath: 'assets/images/circle.png',
+          assetPath: 'assets/images/apple_1.png',
         ),
       ),
     );

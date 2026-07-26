@@ -98,7 +98,7 @@ void main() {
     // AC #3 & #4: the canvas is configured for a 2s diagonal gesture guide.
     await pumpUntil(tester, find.byType(CutCanvas));
     final canvas = tester.widget<CutCanvas>(find.byType(CutCanvas));
-    expect(canvas.assetPath, 'assets/images/1047665181.png',
+    expect(canvas.assetPath, 'assets/images/apple_1.png',
         reason: 'Onboarding should use the Sparrow (level_01) asset');
     expect(canvas.targetPieces, 2);
     expect(canvas.hintDelay, const Duration(seconds: 2),
