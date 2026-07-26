@@ -23,9 +23,7 @@
     "image": "assets/images/apple_3.png",
     "time_limit": 30,
     "target_pieces": 3,
-    "initial_cuts": [
-      { "x1": 0.50, "y1": 0.00, "x2": 0.50, "y2": 1.00, "locked": true }
-    ],
+    "initial_cuts": [],
     "unlock_points": 120
   }
 ]
