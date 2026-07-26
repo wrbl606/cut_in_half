@@ -73,40 +73,54 @@ class _ProgressScreenState extends State<ProgressScreen> {
         elevation: 0,
         centerTitle: false,
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: levels.length,
-        separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFEEEEEE)),
-        itemBuilder: (context, i) {
-          final lvl = levels[i];
-          final unlocked = _isUnlocked(lvl, progress);
-          final lp = progress.forLevel(lvl.id);
-          return _LevelRow(
-            level: lvl,
-            unlocked: unlocked,
-            bestAccuracy: lp?.bestAccuracy ?? 0,
-            bestPoints: lp?.bestPoints ?? 0,
-            cumulativePoints: progress.totalCumulativePoints,
-            onTap: unlocked
-                ? () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => CutScreen(level: lvl),
-                      ),
-                    );
-                    _refreshProgress();
-                  }
-                : null,
-            onAttempts: (lp?.played ?? false)
-                ? () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => AttemptsScreen(
-                          levelId: lvl.id,
-                          title: lvl.title,
-                        ),
-                      ),
-                    )
-                : null,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final crossAxisCount = constraints.maxWidth >= 600
+              ? 3
+              : constraints.maxWidth >= 360
+                  ? 2
+                  : 1;
+          return GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              childAspectRatio: 0.82,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: levels.length,
+            itemBuilder: (context, i) {
+              final lvl = levels[i];
+              final unlocked = _isUnlocked(lvl, progress);
+              final lp = progress.forLevel(lvl.id);
+              return _LevelCard(
+                level: lvl,
+                unlocked: unlocked,
+                bestAccuracy: lp?.bestAccuracy ?? 0,
+                bestPoints: lp?.bestPoints ?? 0,
+                cumulativePoints: progress.totalCumulativePoints,
+                onTap: unlocked
+                    ? () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CutScreen(level: lvl),
+                          ),
+                        );
+                        _refreshProgress();
+                      }
+                    : null,
+                onAttempts: (lp?.played ?? false)
+                    ? () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AttemptsScreen(
+                              levelId: lvl.id,
+                              title: lvl.title,
+                            ),
+                          ),
+                        )
+                    : null,
+              );
+            },
           );
         },
       ),
@@ -114,8 +128,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 }
 
-class _LevelRow extends StatelessWidget {
-  const _LevelRow({
+class _LevelCard extends StatelessWidget {
+  const _LevelCard({
     required this.level,
     required this.unlocked,
     required this.bestAccuracy,
@@ -135,58 +149,77 @@ class _LevelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      enabled: onTap != null,
-      onTap: onTap,
-      title: Row(
-        children: [
-          Icon(
-            unlocked ? Icons.check : Icons.lock_outline,
-            size: 16,
-            color: unlocked ? const Color(0xFF000000) : const Color(0xFFBBBBBB),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              level.title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: unlocked ? const Color(0xFF000000) : const Color(0xFF999999),
+    return Material(
+      color: unlocked ? const Color(0xFFFAFAFA) : const Color(0xFFF5F5F5),
+      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    unlocked ? Icons.check : Icons.lock_outline,
+                    size: 16,
+                    color: unlocked
+                        ? const Color(0xFF000000)
+                        : const Color(0xFFBBBBBB),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      level.title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: unlocked
+                            ? const Color(0xFF000000)
+                            : const Color(0xFF999999),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
-          if (onAttempts != null)
-            _AttemptsButton(onTap: onAttempts!),
-          const SizedBox(width: 8),
-          Text(
-            unlocked
-                ? (bestAccuracy > 0
-                    ? '${bestAccuracy.toStringAsFixed(1)}%  ·  $bestPoints pts'
-                    : '—')
-                : '${level.unlockPoints} pts to unlock',
-            style: TextStyle(
-              fontSize: 13,
-              color: unlocked ? const Color(0xFF666666) : const Color(0xFFBBBBBB),
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-      subtitle: unlocked
-          ? Padding(
-              padding: const EdgeInsets.only(top: 4, left: 26),
-              child: Text(
-                '${level.targetPieces} pieces  ·  ${level.timeLimit}s  ·  '
-                'cumulative $cumulativePoints pts',
-                style: const TextStyle(
+              const Spacer(),
+              Text(
+                unlocked
+                    ? (bestAccuracy > 0
+                        ? '${bestAccuracy.toStringAsFixed(1)}%  ·  $bestPoints pts'
+                        : 'Not played yet')
+                    : '${level.unlockPoints} pts to unlock',
+                style: TextStyle(
                   fontSize: 12,
+                  color: unlocked
+                      ? const Color(0xFF666666)
+                      : const Color(0xFFBBBBBB),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${level.targetPieces} pieces  ·  ${level.timeLimit}s',
+                style: const TextStyle(
+                  fontSize: 11,
                   color: Color(0xFF999999),
                 ),
               ),
-            )
-          : null,
+              if (onAttempts != null) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _AttemptsButton(onTap: onAttempts!),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
