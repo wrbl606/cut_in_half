@@ -1,7 +1,7 @@
 [
   {
     "id": "level_01",
-    "title": "Sparrow",
+    "title": "Apple",
     "image": "assets/images/apple_1.png",
     "time_limit": 30,
     "target_pieces": 2,

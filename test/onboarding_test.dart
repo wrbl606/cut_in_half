@@ -1,9 +1,12 @@
 import 'package:cut_in_half/app.dart';
+import 'package:cut_in_half/models/attempt.dart';
 import 'package:cut_in_half/models/cut_line.dart';
 import 'package:cut_in_half/models/player_progress.dart';
+import 'package:cut_in_half/services/attempt_store.dart';
 import 'package:cut_in_half/services/storage_service.dart';
 import 'package:cut_in_half/widgets/cut_canvas.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// In-memory storage so widget tests never touch plugin prefs.
 class _FakeStorage extends StorageService {
@@ -18,6 +21,12 @@ class _FakeStorage extends StorageService {
 }
 
 void main() {
+  // AttemptStore (used by the onboarding cut) backs onto SharedPreferences,
+  // so give it an in-memory store for every test.
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   group('CutInHalfApp.shouldShowOnboarding', () {
     test('true for a brand-new player (empty progress, flag unset)', () {
       expect(CutInHalfApp.shouldShowOnboarding(PlayerProgress()), isTrue);
@@ -75,40 +84,39 @@ void main() {
 
   // NOTE: This is the only test in the suite that pumps the app into the
   // onboarding state, which builds the real CutCanvas and starts decoding
-  // the Sparrow asset. In this test environment that decode does not
+  // the Apple asset. In this test environment that decode does not
   // resolve, so we avoid waiting on it and we keep this test last to
   // prevent its pending image load from polluting other tests. It
   // consolidates the onboarding-shown + level_01 + hint-config + first-cut
-  // completion checks.
+  // completion + congrats dialog + attempt-recording checks.
   testWidgets(
-      'onboarding shows level_01 with a 2s diagonal guide and completes on '
-      'the first cut', (tester) async {
+      'onboarding shows level_01 (Apple) with a 2s diagonal guide, shows a '
+      'congrats message, stores the cut, then reaches the menu', (tester) async {
     final storage = _FakeStorage();
     await tester.pumpWidget(CutInHalfApp(storage: storage));
 
-    // AC #1: first launch shows the onboarding screen, not the menu.
+    // AC #1: first launch shows the onboarding screen, not the menu, and
+    // refers to the level as Apple (not Sparrow).
     await pumpUntil(tester, find.text('Learn to Cut'));
     expect(find.text('Learn to Cut'), findsOneWidget);
     expect(find.text('Single Player'), findsNothing);
+    expect(find.textContaining('Sparrow'), findsNothing);
+    expect(find.textContaining('Apple'), findsOneWidget);
     expect(storage.progress.onboardingCompleted, isFalse);
 
-    // AC #2: reuses level_01 (Sparrow).
-    expect(find.textContaining('Sparrow'), findsOneWidget);
-
-    // AC #3 & #4: the canvas is configured for a 2s diagonal gesture guide.
-    await pumpUntil(tester, find.byType(CutCanvas));
+    // AC #2: reuses level_01 (Apple).
     final canvas = tester.widget<CutCanvas>(find.byType(CutCanvas));
     expect(canvas.assetPath, 'assets/images/apple_1.png',
-        reason: 'Onboarding should use the Sparrow (level_01) asset');
+        reason: 'Onboarding should use the Apple (level_01) asset');
     expect(canvas.targetPieces, 2);
     expect(canvas.hintDelay, const Duration(seconds: 2),
         reason: 'The gesture guide should fire after a 2s delay');
     expect(canvas.hintDiagonal, isTrue,
         reason: 'The guide should sweep diagonally bottom-left to top-right');
 
-    // AC #5: the player's first committed cut ends onboarding and hands off
-    // to the menu. Drive the canvas's cut callback directly (the same path
-    // a real drag takes) so the test does not depend on image decoding.
+    // AC #3: the player's first committed cut ends onboarding. Drive the
+    // canvas's cut callback directly (the same path a real drag takes) so
+    // the test does not depend on image decoding.
     canvas.onCutsChanged([
       CutLine(
         id: 'p1',
@@ -121,10 +129,34 @@ void main() {
       ),
     ]);
 
+    // AC #4: a congrats message appears before the menu; the menu must not
+    // be reachable until it is dismissed.
+    await pumpUntil(tester, find.text('Nice cut!'));
+    expect(find.text('Nice cut!'), findsOneWidget);
+    expect(find.text('Play'), findsOneWidget);
+    expect(find.text('Single Player'), findsNothing,
+        reason: 'The menu must not appear before the congrats dialog is '
+            'dismissed');
+
+    // AC #5: the onboarding cut is stored as the first single-player
+    // attempt for level_01 (Apple) and appears in the attempt history.
+    final attempts = await AttemptStore().loadAll();
+    expect(attempts, hasLength(1));
+    expect(attempts.first.mode, AttemptMode.single);
+    expect(attempts.first.levelId, 'level_01');
+    expect(attempts.first.title, 'Apple');
+    expect(attempts.first.assetPath, 'assets/images/apple_1.png');
+    expect(attempts.first.cuts, hasLength(1));
+
+    // Dismiss the congrats message → hand off to the menu.
+    await tester.tap(find.text('Play'));
     await pumpUntil(tester, find.text('Single Player'));
     expect(find.text('Single Player'), findsOneWidget,
-        reason: 'Onboarding should hand off to the menu after the first cut');
+        reason: 'Onboarding should hand off to the menu after the dialog is '
+            'dismissed');
     expect(find.text('Learn to Cut'), findsNothing);
+    expect(find.text('Nice cut!'), findsNothing);
+    expect(find.text('Play'), findsNothing);
 
     // AC #6: completion is persisted so onboarding is not shown again.
     expect(storage.progress.onboardingCompleted, isTrue);
