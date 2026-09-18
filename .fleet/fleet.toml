@@ -24,7 +24,8 @@ os   = "linux"
 arch = "amd64"
 
 [coi]
-profile = ""
+# Flutter-enabled COI image (profile built with `coi build --profile fleet-flutter`).
+profile = "fleet-flutter"
 network = "allowlist"
 timeout = "45m"
 
